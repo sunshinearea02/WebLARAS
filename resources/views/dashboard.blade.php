@@ -74,7 +74,8 @@
     <div class="fixed top-20 right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-200/40 blur-3xl -z-10 pointer-events-none"></div>
     <div class="fixed top-[40%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-100/50 blur-3xl -z-10 pointer-events-none"></div>
 
-    <nav id="landingNav" class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200">
+        <nav id="landingNav" class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200">
+        <!-- Sisi Kiri: Logo & Judul -->
         <div class="flex items-center space-x-3">
             <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-10 h-10 rounded-xl object-cover shadow-md">
             <div>
@@ -82,16 +83,39 @@
                 <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-0.5">Landslide Alert &amp; Rescue System</p>
             </div>
         </div>
-        <div class="flex items-center space-x-5">
+
+        <!-- Sisi Kanan: Menu Navigasi + Tombol Live Control + Status Auth -->
+        <div class="flex items-center space-x-4">
             <a href="#features" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Fitur</a>
             <a href="#algorithms" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Algoritma</a>
             <a href="#edukasi" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Edukasi</a>
             <a href="#kontak-darurat" class="text-sm font-medium text-rose-600 hover:text-rose-700 transition-colors hidden lg:inline">Kontak Darurat</a>
             <a href="#developers" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Developer</a>
-            <button onclick="enterDashboard()" class="group px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center space-x-2">
+            
+            <button onclick="enterDashboard()" class="group px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md transition-all flex items-center space-x-1.5">
                 <span>Live Control Center</span>
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="group-hover:translate-x-1 transition-transform"><path d="M9 18l6-6-6-6"/></svg>
             </button>
+
+            <!-- Status Auth Login / Logout -->
+            @auth
+                <div class="text-right hidden sm:block border-l pl-3 border-slate-200">
+                    <p class="text-xs font-bold text-slate-800 leading-tight">{{ Auth::user()->name }}</p>
+                    <p class="text-[9px] uppercase font-mono text-blue-600 font-semibold leading-tight">{{ Auth::user()->role }}</p>
+                </div>
+                
+                <form action="{{ route('logout') }}" method="POST" class="inline">
+                    @csrf
+                    <button type="submit" class="px-3 py-2 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl border border-rose-200 transition">
+                        Logout
+                    </button>
+                </form>
+            @else
+                <a href="{{ route('login') }}" class="px-4 py-2 text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 rounded-xl shadow-sm transition flex items-center gap-1.5">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    Login Kader / Admin
+                </a>
+            @endauth
         </div>
     </nav>
 
@@ -611,7 +635,7 @@
 
 <div id="dashboard-page" style="display:none;">
 
-    <nav class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 gap-3">
+        <nav class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 gap-3">
         
         <!-- Sisi Kiri: Kembali + Logo + Title -->
         <div class="flex items-center gap-3 shrink-0">
@@ -631,27 +655,29 @@
             </div>
         </div>
 
-        <!-- Sisi Kanan: Menu Navigasi + Status Sync -->
+        <!-- Sisi Kanan: Menu Navigasi + Auth Status -->
         <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            <!-- Tombol Edukasi -->
+            <!-- Tombol Edukasi (Publik) -->
             <a href="/edukasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-bold text-xs rounded-xl transition shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
                 Edukasi
             </a>
 
-            <!-- Tombol Data Lanskap -->
+            <!-- Tombol Data Lanskap (HANYA MUNCUL JIKA USER SUDAH LOGIN) -->
+            @auth
             <a href="/lanskap" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-xl transition shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
                 Data Lanskap
             </a>
+            @endauth
 
-            <!-- Tombol Peta Evakuasi -->
+            <!-- Tombol Peta Evakuasi (Publik) -->
             <a href="/peta-evakuasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                 Peta Evakuasi
             </a>
 
-            <!-- Tombol Kontak Darurat -->
+            <!-- Tombol Kontak Darurat (Publik) -->
             <a href="tel:112" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.79 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
                 Kontak Darurat (112)
@@ -662,6 +688,28 @@
                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
                 SYNC ACTIVE
             </div>
+
+            <div class="h-6 w-[1px] bg-slate-200 mx-1"></div>
+
+            <!-- Tombol Auth Login / Logout -->
+            @auth
+                <div class="text-right hidden sm:block shrink-0">
+                    <p class="text-xs font-bold text-slate-800 leading-tight">{{ Auth::user()->name }}</p>
+                    <p class="text-[9px] uppercase font-mono text-blue-600 font-semibold leading-tight">{{ Auth::user()->role }}</p>
+                </div>
+                
+                <form action="{{ route('logout') }}" method="POST" class="inline shrink-0">
+                    @csrf
+                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl border border-rose-200 transition">
+                        Logout
+                    </button>
+                </form>
+            @else
+                <a href="{{ route('login') }}" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-xl shadow-sm transition flex items-center gap-1.5 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                    Login
+                </a>
+            @endauth
         </div>
     </nav>
 
