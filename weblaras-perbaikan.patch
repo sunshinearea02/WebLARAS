@@ -1,0 +1,2694 @@
+diff --git a/.env.example b/.env.example
+index c0660ea..65ee28f 100644
+--- a/.env.example
++++ b/.env.example
+@@ -1,10 +1,10 @@
+-APP_NAME=Laravel
++APP_NAME=LARAS
+ APP_ENV=local
+ APP_KEY=
+ APP_DEBUG=true
+ APP_URL=http://localhost
+ 
+-APP_LOCALE=en
++APP_LOCALE=id
+ APP_FALLBACK_LOCALE=en
+ APP_FAKER_LOCALE=en_US
+ 
+@@ -20,12 +20,18 @@ LOG_STACK=single
+ LOG_DEPRECATIONS_CHANNEL=null
+ LOG_LEVEL=debug
+ 
+-DB_CONNECTION=sqlite
+-# DB_HOST=127.0.0.1
+-# DB_PORT=3306
+-# DB_DATABASE=laravel
+-# DB_USERNAME=root
+-# DB_PASSWORD=
++# ---- Database Supabase (PostgreSQL) ----
++# Ambil dari Supabase: Project Settings -> Database -> Connection string.
++# Pakai "Session pooler" (port 5432) kalau jaringan/hosting tidak mendukung IPv6.
++#   Direct connection : DB_HOST=db.<project-ref>.supabase.co   DB_USERNAME=postgres
++#   Session pooler    : DB_HOST=aws-0-<region>.pooler.supabase.com   DB_USERNAME=postgres.<project-ref>
++DB_CONNECTION=pgsql
++DB_HOST=aws-0-ap-southeast-1.pooler.supabase.com
++DB_PORT=5432
++DB_DATABASE=postgres
++DB_USERNAME=postgres.your-project-ref
++DB_PASSWORD=isi-password-database-supabase
++DB_SSLMODE=require
+ 
+ SESSION_DRIVER=database
+ SESSION_LIFETIME=120
+@@ -63,3 +69,15 @@ AWS_BUCKET=
+ AWS_USE_PATH_STYLE_ENDPOINT=false
+ 
+ VITE_APP_NAME="${APP_NAME}"
++
++# ---- Akun Admin pertama (dipakai: php artisan db:seed) ----
++ADMIN_NAME="Admin LARAS"
++ADMIN_EMAIL=admin@laras.id
++ADMIN_PASSWORD=ganti-password-ini
++
++# ---- Notifikasi Telegram ----
++TELEGRAM_BOT_TOKEN=
++TELEGRAM_CHAT_ID=
++
++# ---- Chatbot (Google Gemini) ----
++GEMINI_API_KEY=
+diff --git a/app/Http/Controllers/AuthController.php b/app/Http/Controllers/AuthController.php
+index fd5bd3c..ad2c1ac 100644
+--- a/app/Http/Controllers/AuthController.php
++++ b/app/Http/Controllers/AuthController.php
+@@ -5,7 +5,6 @@
+ use App\Models\User;
+ use Illuminate\Http\Request;
+ use Illuminate\Support\Facades\Auth;
+-use Illuminate\Support\Facades\Hash;
+ use Illuminate\Validation\Rule;
+ 
+ class AuthController extends Controller
+@@ -16,53 +15,71 @@ public function showLogin()
+         return view('auth.login');
+     }
+ 
+-    // Proses Login
++    // Proses Login (khusus Admin & Kader)
+     public function login(Request $request)
+     {
+         $credentials = $request->validate([
+             'email' => ['required', 'string'],
+-            'password' => ['required'],
++            'password' => ['required', 'string'],
+         ]);
+ 
+-        if (Auth::attempt(['email' => $credentials['email'], 'password' => $credentials['password']])) {
+-            $request->session()->regenerate();
+-            return redirect()->intended('/lanskap')->with('success', 'Berhasil masuk ke sistem!');
++        if (! Auth::attempt($credentials, $request->boolean('remember'))) {
++            return back()->withErrors([
++                'email' => 'Email atau password yang Anda masukkan salah.',
++            ])->onlyInput('email');
+         }
+ 
+-        return back()->withErrors([
+-            'email' => 'Email atau password yang Anda masukkan salah.',
+-        ])->onlyInput('email');
++        $user = Auth::user();
++
++        // Hanya akun petugas (admin/kader) yang aktif yang boleh masuk.
++        if (! $user->isStaff()) {
++            Auth::logout();
++            $request->session()->invalidate();
++            $request->session()->regenerateToken();
++
++            return back()->withErrors([
++                'email' => $user->isActive()
++                    ? 'Akun ini tidak memiliki akses petugas (Admin / Kader).'
++                    : 'Akun Anda sedang nonaktif. Hubungi Admin.',
++            ])->onlyInput('email');
++        }
++
++        $request->session()->regenerate();
++
++        return redirect()->intended(route('lanskap.index'))
++            ->with('success', 'Berhasil masuk sebagai ' . ucfirst($user->role) . '.');
+     }
+ 
+-    // Tampilkan Form Register
++    // Tampilkan Form Register (hanya Admin)
+     public function showRegister()
+     {
+         return view('auth.register');
+     }
+ 
+-    // Proses Register
++    // Proses Register akun petugas baru (hanya Admin)
+     public function register(Request $request)
+     {
+         $validated = $request->validate([
+             'name' => ['required', 'string', 'max:100'],
+-            'email' => ['required', 'string', 'max:100', 'unique:users'],
+-            'password' => ['required', 'string', 'min:6'],
++            'email' => ['required', 'string', 'email', 'max:100', 'unique:users,email'],
++            'password' => ['required', 'string', 'min:6', 'confirmed'],
+             'phone' => ['nullable', 'string', 'max:20'],
+-            'role' => ['required', Rule::in(['admin', 'kader'])],
++            'role' => ['required', Rule::in(User::STAFF_ROLES)],
+         ]);
+ 
++        // Password otomatis di-hash oleh cast 'hashed' di model User.
+         $user = User::create([
+             'name' => $validated['name'],
+             'email' => $validated['email'],
+-            'password' => Hash::make($validated['password']),
++            'password' => $validated['password'],
+             'phone' => $validated['phone'] ?? null,
+             'role' => $validated['role'],
+             'status' => 'ACTIVE',
+         ]);
+ 
+-        Auth::login($user);
+-
+-        return redirect('/lanskap')->with('success', 'Akun berhasil dibuat!');
++        // Admin tetap login sebagai dirinya sendiri (tidak berpindah ke akun baru).
++        return redirect()->route('register')
++            ->with('success', "Akun {$user->role} \"{$user->name}\" berhasil dibuat.");
+     }
+ 
+     // Proses Logout
+@@ -74,4 +91,4 @@ public function logout(Request $request)
+ 
+         return redirect('/')->with('success', 'Berhasil keluar.');
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/Http/Controllers/DashboardController.php b/app/Http/Controllers/DashboardController.php
+index 9936f1e..3d91867 100644
+--- a/app/Http/Controllers/DashboardController.php
++++ b/app/Http/Controllers/DashboardController.php
+@@ -51,7 +51,10 @@ public function getLatestData()
+             $data     = $current->toArray();
+             $sent     = $telegram->sendIfChanged($status, $data);
+ 
+-            TelegramAlertLog::create([
++            // null = tidak dikirim karena masih cooldown / status sama.
++            // Hanya catat log saat benar-benar ada percobaan kirim, supaya tabel
++            // telegram_alert_logs tidak bertambah di setiap polling browser.
++            if ($sent !== null) TelegramAlertLog::create([
+                 'status'           => $status,
+                 'sensor_log_id'    => $current->id,
+                 'moisture_percent' => $current->moisture_percent,
+@@ -84,7 +87,8 @@ public function getSince(\Illuminate\Http\Request $request)
+ 
+     public function getStatusHistory()
+     {
+-        $history = SensorLog::orderBy('timestamp', 'asc')
++        $history = SensorLog::without('prediction')
++            ->orderBy('timestamp', 'asc')
+             ->get(['id', 'timestamp', 'status'])
+             ->map(function ($log) {
+                 return [
+@@ -99,7 +103,8 @@ public function getStatusHistory()
+     public function getForecastHistory()
+     {
+         $history = SensorLog::orderBy('timestamp', 'asc')
+-            ->get(['id', 'timestamp', 'status', 'forecast_status', 'forecast_confidence', 'rf_confidence', 'lstm_confidence', 'moisture_percent', 'vibration', 'pitch'])
++            // vibration & confidence diambil dari relasi ai_predictions (lihat model SensorLog)
++            ->get(['id', 'timestamp', 'status', 'forecast_status', 'moisture_percent', 'pitch'])
+             ->map(function ($log) {
+                 return [
+                     'timestamp'           => $log->timestamp,
+diff --git a/app/Http/Controllers/EvacuationMapController.php b/app/Http/Controllers/EvacuationMapController.php
+index d762b21..cef2fd1 100644
+--- a/app/Http/Controllers/EvacuationMapController.php
++++ b/app/Http/Controllers/EvacuationMapController.php
+@@ -4,6 +4,7 @@
+ 
+ use App\Models\EvacuationCheckin;
+ use Illuminate\Http\Request;
++use Illuminate\Validation\Rule;
+ 
+ class EvacuationMapController extends Controller
+ {
+@@ -114,15 +115,20 @@ public function index(Request $request)
+ 
+     public function storeCheckin(Request $request)
+     {
++        // Hanya Admin / Kader (dijaga middleware role:admin,kader di routes/web.php)
++        $daftarPosko = collect($this->getDaftarPosko())->keyBy('id');
++
+         $validated = $request->validate([
+-            'posko_id'     => 'required|string',
+-            'lokasi_posko' => 'required|string',
++            'posko_id'     => ['required', 'string', Rule::in($daftarPosko->keys()->all())],
+             'nama_lengkap' => 'required|string|max:255',
+             'asal'         => 'required|string|max:255',
+             'usia'         => 'required|integer|min:0|max:120',
+             'kondisi'      => 'required|in:Sehat,Luka Ringan,Luka Berat,Lansia / Rentan',
+         ]);
+ 
++        // Lokasi posko diambil dari server, bukan dari input browser
++        $validated['lokasi_posko'] = $daftarPosko[$validated['posko_id']]['lokasi'];
++
+         $checkin = EvacuationCheckin::create($validated);
+ 
+         return response()->json([
+@@ -132,6 +138,17 @@ public function storeCheckin(Request $request)
+         ]);
+     }
+ 
++    public function destroyCheckin($id)
++    {
++        // Hanya Admin / Kader (dijaga middleware role:admin,kader di routes/web.php)
++        EvacuationCheckin::findOrFail($id)->delete();
++
++        return response()->json([
++            'success' => true,
++            'message' => 'Data check-in berhasil dihapus.',
++        ]);
++    }
++
+     public function getCheckins(Request $request)
+     {
+         try {
+diff --git a/app/Http/Controllers/ForecastController.php b/app/Http/Controllers/ForecastController.php
+index 65806b5..089f756 100644
+--- a/app/Http/Controllers/ForecastController.php
++++ b/app/Http/Controllers/ForecastController.php
+@@ -2,31 +2,29 @@
+ 
+ namespace App\Http\Controllers;
+ 
+-use App\Models\SensorData;
++use App\Models\SensorLog;
+ 
+ class ForecastController extends Controller
+ {
+     public function latest()
+     {
+-        $data = SensorData::latest('timestamp')->first();
++        $data = SensorLog::latest('timestamp')->first();
++
++        if (! $data) {
++            return response()->json(['error' => 'Tidak ada data sensor.'], 404);
++        }
+ 
+         return response()->json([
+             'status' => $data->status,
+             'forecast_status' => $data->forecast_status,
+-
+             'rf_confidence' => $data->rf_confidence,
+             'lstm_confidence' => $data->lstm_confidence,
+-
+             'forecast_confidence' => $data->forecast_confidence,
+-
+             'vibration' => $data->vibration,
+-
+             'moisture_percent' => $data->moisture_percent,
+-
+             'pitch' => $data->pitch,
+             'roll' => $data->roll,
+-
+-            'timestamp' => $data->timestamp
++            'timestamp' => $data->timestamp,
+         ]);
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/Http/Controllers/LandscapeController.php b/app/Http/Controllers/LandscapeController.php
+index b94b97e..e743f50 100644
+--- a/app/Http/Controllers/LandscapeController.php
++++ b/app/Http/Controllers/LandscapeController.php
+@@ -2,38 +2,81 @@
+ 
+ namespace App\Http\Controllers;
+ 
++use App\Models\LandscapeAssessment;
++use App\Models\SensorNode;
+ use Illuminate\Http\Request;
+-use App\Models\Landscape;
++use Illuminate\Validation\Rule;
+ 
+ class LandscapeController extends Controller
+ {
+-    public function index()
++    public function index(Request $request)
+     {
+-        // Ambil data lanskap dari database
+-        $entries = Landscape::latest()->get();
++        // Data lanskap bisa DILIHAT semua orang (termasuk warga/guest)
++        $entries = LandscapeAssessment::with(['node', 'user'])->latest()->get();
++        $options = LandscapeAssessment::options();
++        $nodes = SensorNode::orderBy('node_code')->get();
+ 
+-        // WAJIB MENGGUNAKAN view('lanskap') AGAR BLADE ENGINE BERJALAN
+-        return view('lanskap', compact('entries'));
++        // Mode edit hanya untuk admin/kader
++        $editing = null;
++        if ($request->filled('edit') && $request->user()?->can('kelola-data')) {
++            $editing = LandscapeAssessment::find($request->integer('edit'));
++        }
++
++        return view('lanskap', compact('entries', 'options', 'editing', 'nodes'));
+     }
+ 
+     public function store(Request $request)
+     {
+-        // Validasi dan simpan data (khusus admin/kader)
+-        $request->validate([
+-            'location_name' => 'required|string|max:255',
++        LandscapeAssessment::create($this->validated($request) + [
++            'user_id' => $request->user()->id, // pengisi data tercatat otomatis
+         ]);
+ 
+-        Landscape::create($request->all());
+-
+         return redirect()->route('lanskap.index')->with('success', 'Data lanskap berhasil ditambahkan!');
+     }
+ 
++    public function update(Request $request, $id)
++    {
++        $entry = LandscapeAssessment::findOrFail($id);
++        $entry->update($this->validated($request) + [
++            'user_id' => $request->user()->id, // petugas terakhir yang mengubah
++        ]);
++
++        return redirect()->route('lanskap.index')->with('success', 'Data lanskap berhasil diperbarui!');
++    }
++
+     public function destroy($id)
+     {
+-        // Hapus data (khusus admin/kader)
+-        $entry = Landscape::findOrFail($id);
+-        $entry->delete();
++        LandscapeAssessment::findOrFail($id)->delete();
+ 
+         return redirect()->route('lanskap.index')->with('success', 'Data lanskap berhasil dihapus!');
+     }
+-}
+\ No newline at end of file
++
++    /**
++     * Validasi input form lanskap dan ubah radio "ada / tidak_ada" menjadi boolean.
++     */
++    private function validated(Request $request): array
++    {
++        $options = LandscapeAssessment::options();
++
++        $rules = [
++            'node_id' => ['required', 'integer', 'exists:sensor_nodes,id'],
++            'location_name' => ['required', 'string', 'max:255'],
++            'field_notes' => ['nullable', 'string', 'max:5000'],
++            'artificial_slope_cutting' => ['nullable', Rule::in(['ada', 'tidak_ada'])],
++        ];
++
++        foreach ($options as $field => $choices) {
++            $rules[$field] = ['nullable', Rule::in($choices)];
++        }
++
++        $data = $request->validate($rules);
++
++        $data['artificial_slope_cutting'] = match ($data['artificial_slope_cutting'] ?? null) {
++            'ada' => true,
++            'tidak_ada' => false,
++            default => null,
++        };
++
++        return $data;
++    }
++}
+diff --git a/app/Http/Controllers/RegisterController.php b/app/Http/Controllers/RegisterController.php
+deleted file mode 100644
+index ba5ab78..0000000
+--- a/app/Http/Controllers/RegisterController.php
++++ /dev/null
+@@ -1,46 +0,0 @@
+-<?php
+-
+-namespace App\Http\Controllers\Auth;
+-
+-use App\Http\Controllers\Controller;
+-use App\Models\User;
+-use Illuminate\Http\Request;
+-use Illuminate\Support\Facades\Auth;
+-use Illuminate\Support\Facades\Hash;
+-use Illuminate\Validation\Rule;
+-
+-class RegisterController extends Controller
+-{
+-    // Menampilkan halaman form register
+-    public function showRegistrationForm()
+-    {
+-        return view('auth.register');
+-    }
+-
+-    // Memproses pendaftaran akun baru
+-    public function register(Request $request)
+-    {
+-        $validated = $request->validate([
+-            'name' => ['required', 'string', 'max:100'],
+-            'email' => ['required', 'string', 'email', 'max:100', 'unique:users'],
+-            'password' => ['required', 'string', 'min:6'],
+-            'phone' => ['nullable', 'string', 'max:20'],
+-            'role' => ['required', Rule::in(['admin', 'kader'])], // Sesuai check constraint database
+-        ]);
+-
+-        // Simpan ke database dengan password ter-hash otomatis oleh Hash::make
+-        $user = User::create([
+-            'name' => $validated['name'],
+-            'email' => $validated['email'],
+-            'password' => Hash::make($validated['password']),
+-            'phone' => $validated['phone'] ?? null,
+-            'role' => $validated['role'],
+-            'status' => 'ACTIVE', // Default status aktif sesuai database
+-        ]);
+-
+-        // Langsung login-kan setelah register berhasil
+-        Auth::login($user);
+-
+-        return redirect()->route('lanskap.index')->with('success', 'Akun berhasil dibuat dan Anda telah masuk!');
+-    }
+-}
+\ No newline at end of file
+diff --git a/app/Http/Middleware/CheckRole.php b/app/Http/Middleware/CheckRole.php
+index 4080ff5..1cf5b76 100644
+--- a/app/Http/Middleware/CheckRole.php
++++ b/app/Http/Middleware/CheckRole.php
+@@ -6,14 +6,44 @@
+ use Illuminate\Http\Request;
+ use Symfony\Component\HttpFoundation\Response;
+ 
++/**
++ * Membatasi akses rute berdasarkan role user.
++ *
++ * Contoh pemakaian di routes:
++ *   ->middleware('role:admin')          // hanya admin
++ *   ->middleware('role:admin,kader')    // admin ATAU kader
++ */
+ class CheckRole
+ {
+-    public function handle(Request $request, Closure $next, string $role): Response
++    public function handle(Request $request, Closure $next, string ...$roles): Response
+     {
+-        if (!auth()->check() || auth()->user()->role !== $role) {
++        $user = $request->user();
++
++        // Belum login (warga / guest)
++        if (! $user) {
++            if ($request->expectsJson()) {
++                return response()->json([
++                    'success' => false,
++                    'message' => 'Silakan login sebagai Kader / Admin terlebih dahulu.',
++                ], 401);
++            }
++
++            return redirect()->guest(route('login'))
++                ->withErrors(['email' => 'Silakan login sebagai Kader / Admin untuk mengakses fitur ini.']);
++        }
++
++        // Sudah login tapi role tidak sesuai atau akun nonaktif
++        if (! $user->isActive() || ! in_array($user->role, $roles, true)) {
++            if ($request->expectsJson()) {
++                return response()->json([
++                    'success' => false,
++                    'message' => 'Akses ditolak. Anda tidak memiliki izin.',
++                ], 403);
++            }
++
+             abort(403, 'Akses ditolak. Anda tidak memiliki izin.');
+         }
+ 
+         return $next($request);
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/app/Models/AiPrediction.php b/app/Models/AiPrediction.php
+new file mode 100644
+index 0000000..5fab3b6
+--- /dev/null
++++ b/app/Models/AiPrediction.php
+@@ -0,0 +1,30 @@
++<?php
++
++namespace App\Models;
++
++use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
++
++/**
++ * Hasil prediksi AI per baris sensor_data.
++ * Ditulis oleh pipeline ML (Python), web hanya membaca.
++ */
++class AiPrediction extends Model
++{
++    protected $table = 'ai_predictions';
++
++    public $timestamps = false;
++
++    protected $guarded = ['id'];
++
++    protected $casts = [
++        'lstm_uncertain' => 'boolean',
++        'timestamp' => 'datetime',
++        'created_at' => 'datetime',
++    ];
++
++    public function sensorData(): BelongsTo
++    {
++        return $this->belongsTo(SensorLog::class, 'sensor_data_id');
++    }
++}
+diff --git a/app/Models/LandscapeAssessment.php b/app/Models/LandscapeAssessment.php
+index d79417e..3f7f4de 100644
+--- a/app/Models/LandscapeAssessment.php
++++ b/app/Models/LandscapeAssessment.php
+@@ -3,12 +3,15 @@
+ namespace App\Models;
+ 
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
+ 
+ class LandscapeAssessment extends Model
+ {
+     protected $table = 'landscape_assessments';
+ 
+     protected $fillable = [
++        'node_id',
++        'user_id',
+         'location_name',
+         'field_notes',
+         'dominant_vegetation',
+@@ -26,6 +29,16 @@ class LandscapeAssessment extends Model
+         'artificial_slope_cutting' => 'boolean',
+     ];
+ 
++    public function node(): BelongsTo
++    {
++        return $this->belongsTo(SensorNode::class, 'node_id');
++    }
++
++    public function user(): BelongsTo
++    {
++        return $this->belongsTo(User::class, 'user_id');
++    }
++
+     public static function options(): array
+     {
+         return [
+diff --git a/app/Models/SensorLog.php b/app/Models/SensorLog.php
+index 97d6d3b..d2b1d24 100644
+--- a/app/Models/SensorLog.php
++++ b/app/Models/SensorLog.php
+@@ -3,45 +3,80 @@
+ namespace App\Models;
+ 
+ use Illuminate\Database\Eloquent\Model;
+-
++use Illuminate\Database\Eloquent\Relations\BelongsTo;
++use Illuminate\Database\Eloquent\Relations\HasOne;
++
++/**
++ * Tabel sensor_data (telemetri ESP32).
++ *
++ * Kolom hasil AI (vibration, rf_confidence, lstm_confidence, forecast_confidence)
++ * TIDAK ada di sensor_data, tetapi di tabel ai_predictions. Supaya kode
++ * dashboard/chatbot/telegram yang lama tetap jalan, nilai itu diambil dari
++ * relasi `prediction` lewat accessor di bawah dan ikut tampil di JSON.
++ */
+ class SensorLog extends Model
+ {
+     protected $table = 'sensor_data';
+ 
+-    protected $primaryKey = 'id';
+-
+     public $timestamps = false;
+ 
+     protected $fillable = [
+-
++        'node_id',
+         'timestamp',
+-
+         'moisture',
+         'moisture_percent',
+-
+-        // Rencana pengadaan (lihat Tabel 2 proposal) — nullable sampai hardware terpasang
+-        'rainfall_mm',
+         'moisture_percent_deep',
++        'rainfall_mm',
++        'ax', 'ay', 'az',
++        'gx', 'gy', 'gz',
++        'pitch',
++        'roll',
++        'sensor_log_id',
++        'rain_tips_total',
++        'status',
++        'forecast_status',
++    ];
+ 
+-        'ax',
+-        'ay',
+-        'az',
++    /** Selalu ambil prediksi AI sekaligus (1 query tambahan, bukan N+1). */
++    protected $with = ['prediction'];
+ 
+-        'gx',
+-        'gy',
+-        'gz',
++    protected $hidden = ['prediction'];
+ 
+-        'pitch',
+-        'roll',
++    protected $appends = ['vibration', 'rf_confidence', 'lstm_confidence', 'forecast_confidence'];
+ 
+-        'vibration',
+-        'status',
++    public function prediction(): HasOne
++    {
++        return $this->hasOne(AiPrediction::class, 'sensor_data_id');
++    }
+ 
+-        'forecast_status',
+-        'forecast_confidence',
++    public function node(): BelongsTo
++    {
++        return $this->belongsTo(SensorNode::class, 'node_id');
++    }
+ 
+-        'rf_confidence',
+-        'lstm_confidence'
+-    ];
+-}
++    public function getVibrationAttribute(): ?float
++    {
++        return $this->prediction?->vibration ?? $this->prediction?->vibration_g;
++    }
++
++    public function getRfConfidenceAttribute(): ?float
++    {
++        return $this->prediction?->rf_confidence;
++    }
++
++    public function getLstmConfidenceAttribute(): ?float
++    {
++        return $this->prediction?->lstm_confidence;
++    }
+ 
++    public function getForecastConfidenceAttribute(): ?float
++    {
++        return $this->prediction?->forecast_confidence;
++    }
++
++    /** forecast_status dari sensor_data, kalau kosong ambil dari ai_predictions. */
++    public function getForecastStatusAttribute($value): ?string
++    {
++        return $value ?? $this->prediction?->forecast_status;
++    }
++}
+diff --git a/app/Models/SensorNode.php b/app/Models/SensorNode.php
+index 816606c..f7f952c 100644
+--- a/app/Models/SensorNode.php
++++ b/app/Models/SensorNode.php
+@@ -3,18 +3,42 @@
+ namespace App\Models;
+ 
+ use Illuminate\Database\Eloquent\Model;
++use Illuminate\Database\Eloquent\Relations\HasMany;
+ 
+ class SensorNode extends Model
+ {
+     protected $table = 'sensor_nodes';
+ 
+     protected $fillable = [
++        'node_code',
+         'node_name',
+-        'lat',
+-        'lng',
++        'latitude',
++        'longitude',
++        'installation_date',
+         'status',
+-        'desa',
+-        'notes',
+-        'sensor_log_id',
++        'last_seen',
+     ];
++
++    protected $casts = [
++        'latitude' => 'float',
++        'longitude' => 'float',
++        'installation_date' => 'date',
++        'last_seen' => 'datetime',
++    ];
++
++    public function sensorData(): HasMany
++    {
++        return $this->hasMany(SensorLog::class, 'node_id');
++    }
++
++    public function landscapeAssessments(): HasMany
++    {
++        return $this->hasMany(LandscapeAssessment::class, 'node_id');
++    }
++
++    /** Label untuk dropdown, contoh: "NODE-01 — Lereng Padusan". */
++    public function getLabelAttribute(): string
++    {
++        return trim($this->node_code . ' — ' . $this->node_name, ' —');
++    }
+ }
+diff --git a/app/Models/User.php b/app/Models/User.php
+index 74845df..560d77b 100644
+--- a/app/Models/User.php
++++ b/app/Models/User.php
+@@ -16,6 +16,12 @@ class User extends Authenticatable
+     /** @use HasFactory<UserFactory> */
+     use HasFactory, Notifiable;
+ 
++    public const ROLE_ADMIN = 'admin';
++    public const ROLE_KADER = 'kader';
++
++    /** Role yang boleh mengelola data (edit lanskap & check-in warga). */
++    public const STAFF_ROLES = [self::ROLE_ADMIN, self::ROLE_KADER];
++
+     protected $table = 'users'; // Menyesuaikan nama tabel di Supabase
+ 
+     /**
+@@ -26,8 +32,29 @@ class User extends Authenticatable
+     protected function casts(): array
+     {
+         return [
+-            'email_verified_at' => 'datetime',
+             'password' => 'hashed',
+         ];
+     }
+-}
+\ No newline at end of file
++
++    public function isAdmin(): bool
++    {
++        return $this->role === self::ROLE_ADMIN;
++    }
++
++    public function isKader(): bool
++    {
++        return $this->role === self::ROLE_KADER;
++    }
++
++    /** Akun dianggap aktif jika status kosong (data lama) atau 'ACTIVE'. */
++    public function isActive(): bool
++    {
++        return $this->status === null || strtoupper($this->status) === 'ACTIVE';
++    }
++
++    /** Admin / Kader yang aktif = boleh edit data lanskap & check-in. */
++    public function isStaff(): bool
++    {
++        return $this->isActive() && in_array($this->role, self::STAFF_ROLES, true);
++    }
++}
+diff --git a/app/Providers/AppServiceProvider.php b/app/Providers/AppServiceProvider.php
+index 452e6b6..f568d52 100644
+--- a/app/Providers/AppServiceProvider.php
++++ b/app/Providers/AppServiceProvider.php
+@@ -2,6 +2,8 @@
+ 
+ namespace App\Providers;
+ 
++use App\Models\User;
++use Illuminate\Support\Facades\Gate;
+ use Illuminate\Support\ServiceProvider;
+ 
+ class AppServiceProvider extends ServiceProvider
+@@ -19,6 +21,11 @@ public function register(): void
+      */
+     public function boot(): void
+     {
+-        //
++        // Admin & Kader boleh mengelola data (lanskap + check-in warga).
++        // Di Blade dipakai lewat @can('kelola-data') ... @endcan
++        Gate::define('kelola-data', fn (User $user) => $user->isStaff());
++
++        // Hanya admin yang boleh membuat akun petugas baru.
++        Gate::define('kelola-akun', fn (User $user) => $user->isActive() && $user->isAdmin());
+     }
+ }
+diff --git a/app/Services/TelegramAlertService.php b/app/Services/TelegramAlertService.php
+index 072c3d6..5bdb245 100644
+--- a/app/Services/TelegramAlertService.php
++++ b/app/Services/TelegramAlertService.php
+@@ -45,7 +45,11 @@ public function send(string $message): bool
+         }
+     }
+ 
+-    public function sendIfChanged(string $status, array $data): bool
++    /**
++     * @return bool|null true = terkirim, false = gagal kirim,
++     *                   null = dilewati (status sama & masih cooldown)
++     */
++    public function sendIfChanged(string $status, array $data): ?bool
+     {
+         $status  = strtoupper(trim($status));
+         $cacheKey = 'telegram_last_alert_status';
+@@ -63,7 +67,7 @@ public function sendIfChanged(string $status, array $data): bool
+ 
+         
+         if ($lastSentStatus === $status && $inCooldown) {
+-            return false; 
++            return null;
+         }
+ 
+         $message = $this->buildMessage($status, $data);
+diff --git a/bootstrap/app.php b/bootstrap/app.php
+index 561a8e6..c36f56e 100644
+--- a/bootstrap/app.php
++++ b/bootstrap/app.php
+@@ -16,6 +16,11 @@
+         $middleware->alias([
+             'role' => CheckRole::class,
+         ]);
++
++        // Guest yang membuka halaman khusus petugas diarahkan ke login,
++        // petugas yang sudah login dan membuka /login diarahkan ke Data Lanskap.
++        $middleware->redirectGuestsTo(fn () => route('login'));
++        $middleware->redirectUsersTo(fn () => route('lanskap.index'));
+     })
+     ->withExceptions(function (Exceptions $exceptions) {
+         //
+diff --git a/database/factories/UserFactory.php b/database/factories/UserFactory.php
+index c4ceb07..5f2e10f 100644
+--- a/database/factories/UserFactory.php
++++ b/database/factories/UserFactory.php
+@@ -27,19 +27,16 @@ public function definition(): array
+         return [
+             'name' => fake()->name(),
+             'email' => fake()->unique()->safeEmail(),
+-            'email_verified_at' => now(),
+             'password' => static::$password ??= Hash::make('password'),
+             'remember_token' => Str::random(10),
++            'role' => 'kader',
++            'status' => 'ACTIVE',
+         ];
+     }
+ 
+-    /**
+-     * Indicate that the model's email address should be unverified.
+-     */
+-    public function unverified(): static
++    public function admin(): static
+     {
+-        return $this->state(fn (array $attributes) => [
+-            'email_verified_at' => null,
+-        ]);
++        return $this->state(fn () => ['role' => 'admin']);
+     }
++
+ }
+diff --git a/database/migrations/0001_01_01_000000_create_users_table.php b/database/migrations/0001_01_01_000000_create_users_table.php
+index 05fb5d9..8f15475 100644
+--- a/database/migrations/0001_01_01_000000_create_users_table.php
++++ b/database/migrations/0001_01_01_000000_create_users_table.php
+@@ -4,46 +4,44 @@
+ use Illuminate\Database\Schema\Blueprint;
+ use Illuminate\Support\Facades\Schema;
+ 
++/**
++ * Tabel users disesuaikan dengan skema Supabase.
++ * Semua create dicek dulu (hasTable) supaya aman dijalankan di database
++ * Supabase yang tabelnya sudah ada.
++ */
+ return new class extends Migration
+ {
+-    /**
+-     * Run the migrations.
+-     */
+     public function up(): void
+     {
+-        Schema::create('users', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('name');
+-            $table->string('email')->unique();
+-            $table->timestamp('email_verified_at')->nullable();
+-            $table->string('password');
+-            $table->rememberToken();
+-            $table->timestamps();
+-        });
++        if (! Schema::hasTable('users')) {
++            Schema::create('users', function (Blueprint $table) {
++                $table->id();
++                $table->string('name');
++                $table->string('email')->unique();
++                $table->string('password');
++                $table->string('phone')->nullable();
++                $table->enum('role', ['admin', 'kader'])->default('kader');
++                $table->string('status')->default('ACTIVE');
++                $table->rememberToken();
++                $table->timestamps();
++            });
++        }
+ 
+-        Schema::create('password_reset_tokens', function (Blueprint $table) {
+-            $table->string('email')->primary();
+-            $table->string('token');
+-            $table->timestamp('created_at')->nullable();
+-        });
+-
+-        Schema::create('sessions', function (Blueprint $table) {
+-            $table->string('id')->primary();
+-            $table->foreignId('user_id')->nullable()->index();
+-            $table->string('ip_address', 45)->nullable();
+-            $table->text('user_agent')->nullable();
+-            $table->longText('payload');
+-            $table->integer('last_activity')->index();
+-        });
++        if (! Schema::hasTable('sessions')) {
++            Schema::create('sessions', function (Blueprint $table) {
++                $table->string('id')->primary();
++                $table->foreignId('user_id')->nullable()->index();
++                $table->string('ip_address', 45)->nullable();
++                $table->text('user_agent')->nullable();
++                $table->longText('payload');
++                $table->integer('last_activity')->index();
++            });
++        }
+     }
+ 
+-    /**
+-     * Reverse the migrations.
+-     */
+     public function down(): void
+     {
+         Schema::dropIfExists('users');
+-        Schema::dropIfExists('password_reset_tokens');
+         Schema::dropIfExists('sessions');
+     }
+ };
+diff --git a/database/migrations/0001_01_01_000001_create_cache_table.php b/database/migrations/0001_01_01_000001_create_cache_table.php
+index 06dc7a5..e2a3b18 100644
+--- a/database/migrations/0001_01_01_000001_create_cache_table.php
++++ b/database/migrations/0001_01_01_000001_create_cache_table.php
+@@ -11,17 +11,21 @@
+      */
+     public function up(): void
+     {
+-        Schema::create('cache', function (Blueprint $table) {
+-            $table->string('key')->primary();
+-            $table->mediumText('value');
+-            $table->bigInteger('expiration')->index();
+-        });
++        if (! Schema::hasTable('cache')) {
++            Schema::create('cache', function (Blueprint $table) {
++                $table->string('key')->primary();
++                $table->mediumText('value');
++                $table->bigInteger('expiration')->index();
++            });
++        }
+ 
+-        Schema::create('cache_locks', function (Blueprint $table) {
+-            $table->string('key')->primary();
+-            $table->string('owner');
+-            $table->bigInteger('expiration')->index();
+-        });
++        if (! Schema::hasTable('cache_locks')) {
++            Schema::create('cache_locks', function (Blueprint $table) {
++                $table->string('key')->primary();
++                $table->string('owner');
++                $table->bigInteger('expiration')->index();
++            });
++        }
+     }
+ 
+     /**
+diff --git a/database/migrations/0001_01_01_000002_create_jobs_table.php b/database/migrations/0001_01_01_000002_create_jobs_table.php
+index edac6fe..47914b1 100644
+--- a/database/migrations/0001_01_01_000002_create_jobs_table.php
++++ b/database/migrations/0001_01_01_000002_create_jobs_table.php
+@@ -11,40 +11,46 @@
+      */
+     public function up(): void
+     {
+-        Schema::create('jobs', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('queue')->index();
+-            $table->longText('payload');
+-            $table->unsignedSmallInteger('attempts');
+-            $table->unsignedInteger('reserved_at')->nullable();
+-            $table->unsignedInteger('available_at');
+-            $table->unsignedInteger('created_at');
+-        });
++        if (! Schema::hasTable('jobs')) {
++            Schema::create('jobs', function (Blueprint $table) {
++                $table->id();
++                $table->string('queue')->index();
++                $table->longText('payload');
++                $table->unsignedSmallInteger('attempts');
++                $table->unsignedInteger('reserved_at')->nullable();
++                $table->unsignedInteger('available_at');
++                $table->unsignedInteger('created_at');
++            });
++        }
+ 
+-        Schema::create('job_batches', function (Blueprint $table) {
+-            $table->string('id')->primary();
+-            $table->string('name');
+-            $table->integer('total_jobs');
+-            $table->integer('pending_jobs');
+-            $table->integer('failed_jobs');
+-            $table->longText('failed_job_ids');
+-            $table->mediumText('options')->nullable();
+-            $table->integer('cancelled_at')->nullable();
+-            $table->integer('created_at');
+-            $table->integer('finished_at')->nullable();
+-        });
++        if (! Schema::hasTable('job_batches')) {
++            Schema::create('job_batches', function (Blueprint $table) {
++                $table->string('id')->primary();
++                $table->string('name');
++                $table->integer('total_jobs');
++                $table->integer('pending_jobs');
++                $table->integer('failed_jobs');
++                $table->longText('failed_job_ids');
++                $table->mediumText('options')->nullable();
++                $table->integer('cancelled_at')->nullable();
++                $table->integer('created_at');
++                $table->integer('finished_at')->nullable();
++            });
++        }
+ 
+-        Schema::create('failed_jobs', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('uuid')->unique();
+-            $table->string('connection');
+-            $table->string('queue');
+-            $table->longText('payload');
+-            $table->longText('exception');
+-            $table->timestamp('failed_at')->useCurrent();
++        if (! Schema::hasTable('failed_jobs')) {
++            Schema::create('failed_jobs', function (Blueprint $table) {
++                $table->id();
++                $table->string('uuid')->unique();
++                $table->string('connection');
++                $table->string('queue');
++                $table->longText('payload');
++                $table->longText('exception');
++                $table->timestamp('failed_at')->useCurrent();
+ 
+-            $table->index(['connection', 'queue', 'failed_at']);
+-        });
++                $table->index(['connection', 'queue', 'failed_at']);
++            });
++        }
+     }
+ 
+     /**
+diff --git a/database/migrations/2026_05_01_000001_create_sensor_nodes_table.php b/database/migrations/2026_05_01_000001_create_sensor_nodes_table.php
+new file mode 100644
+index 0000000..02b9cc1
+--- /dev/null
++++ b/database/migrations/2026_05_01_000001_create_sensor_nodes_table.php
+@@ -0,0 +1,34 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++/** Titik node sensor LARAS (sesuai skema Supabase). */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        if (Schema::hasTable('sensor_nodes')) {
++            return;
++        }
++
++        Schema::create('sensor_nodes', function (Blueprint $table) {
++            $table->id();
++            $table->string('node_code')->unique();
++            $table->string('node_name');
++            $table->decimal('latitude', 10, 7);
++            $table->decimal('longitude', 10, 7);
++            $table->date('installation_date')->nullable();
++            $table->string('status')->default('ACTIVE');
++            $table->timestamp('last_seen')->nullable();
++            $table->timestamp('created_at')->nullable()->useCurrent();
++            $table->timestamp('updated_at')->nullable()->useCurrent();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('sensor_nodes');
++    }
++};
+diff --git a/database/migrations/2026_05_01_000002_create_sensor_data_table.php b/database/migrations/2026_05_01_000002_create_sensor_data_table.php
+new file mode 100644
+index 0000000..22d2449
+--- /dev/null
++++ b/database/migrations/2026_05_01_000002_create_sensor_data_table.php
+@@ -0,0 +1,48 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++/** Data telemetri mentah dari ESP32 (sesuai skema Supabase). */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        if (Schema::hasTable('sensor_data')) {
++            return;
++        }
++
++        Schema::create('sensor_data', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('node_id')->constrained('sensor_nodes', indexName: 'fk_sensor_node');
++            $table->timestamp('timestamp')->nullable()->useCurrent();
++
++            $table->integer('moisture')->nullable();
++            $table->double('moisture_percent')->nullable();
++            $table->double('moisture_percent_deep')->nullable();
++            $table->double('rainfall_mm')->nullable();
++
++            $table->double('ax')->nullable();
++            $table->double('ay')->nullable();
++            $table->double('az')->nullable();
++            $table->double('gx')->nullable();
++            $table->double('gy')->nullable();
++            $table->double('gz')->nullable();
++            $table->double('pitch')->nullable();
++            $table->double('roll')->nullable();
++
++            $table->text('sensor_log_id')->nullable();
++            $table->integer('rain_tips_total')->nullable();
++            $table->string('status')->nullable()->default('UNKNOWN');
++            $table->string('forecast_status')->nullable();
++
++            $table->index('timestamp');
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('sensor_data');
++    }
++};
+diff --git a/database/migrations/2026_05_01_000003_create_ai_predictions_table.php b/database/migrations/2026_05_01_000003_create_ai_predictions_table.php
+new file mode 100644
+index 0000000..aeddbca
+--- /dev/null
++++ b/database/migrations/2026_05_01_000003_create_ai_predictions_table.php
+@@ -0,0 +1,65 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++/** Hasil prediksi model AI (RF + LSTM) per baris sensor_data (sesuai skema Supabase). */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        if (Schema::hasTable('ai_predictions')) {
++            return;
++        }
++
++        Schema::create('ai_predictions', function (Blueprint $table) {
++            $table->id();
++            $table->foreignId('sensor_data_id')->unique()->constrained('sensor_data', indexName: 'fk_prediction_sensor');
++
++            $table->string('current_status')->nullable();
++            $table->string('forecast_status')->nullable();
++            $table->double('rf_confidence')->nullable();
++            $table->double('lstm_confidence')->nullable();
++            $table->double('forecast_confidence')->nullable();
++            $table->double('vibration')->nullable();
++            $table->string('model_version')->nullable();
++            $table->timestamp('created_at')->nullable()->useCurrent();
++            $table->text('sensor_log_id')->nullable();
++            $table->timestamp('timestamp')->nullable();
++
++            $table->enum('final_status', ['AMAN', 'WASPADA', 'BAHAYA'])->nullable();
++            $table->float('composite_risk_index')->nullable();
++            $table->string('dynamic_status')->nullable();
++            $table->string('hydro_ml_status')->nullable();
++            $table->string('hydro_rule_status')->nullable();
++            $table->string('imu_status')->nullable();
++            $table->string('rf_status')->nullable();
++
++            $table->float('lstm_forecast_shallow')->nullable();
++            $table->float('lstm_forecast_deep')->nullable();
++            $table->boolean('lstm_uncertain')->nullable();
++            $table->float('lstm_max_std')->nullable();
++            $table->text('lstm_stage')->nullable();
++
++            $table->float('moist_shallow_rel')->nullable();
++            $table->float('moist_deep_rel')->nullable();
++            $table->float('rain_1h_mm')->nullable();
++            $table->float('rain_duration_h')->nullable();
++            $table->float('rain_24h_mm')->nullable();
++            $table->float('vibration_g')->nullable();
++            $table->float('gyro_dps')->nullable();
++            $table->float('tilt_rate_deg_min')->nullable();
++            $table->float('tilt_rate_deg_h')->nullable();
++            $table->float('tilt_dev_deg')->nullable();
++            $table->float('static_score')->nullable();
++            $table->text('reasons')->nullable();
++            $table->text('data_quality')->nullable();
++        });
++    }
++
++    public function down(): void
++    {
++        Schema::dropIfExists('ai_predictions');
++    }
++};
+diff --git a/database/migrations/2026_05_20_124830_create_personal_access_tokens_table.php b/database/migrations/2026_05_20_124830_create_personal_access_tokens_table.php
+index 40ff706..69af0ba 100644
+--- a/database/migrations/2026_05_20_124830_create_personal_access_tokens_table.php
++++ b/database/migrations/2026_05_20_124830_create_personal_access_tokens_table.php
+@@ -11,16 +11,18 @@
+      */
+     public function up(): void
+     {
+-        Schema::create('personal_access_tokens', function (Blueprint $table) {
+-            $table->id();
+-            $table->morphs('tokenable');
+-            $table->text('name');
+-            $table->string('token', 64)->unique();
+-            $table->text('abilities')->nullable();
+-            $table->timestamp('last_used_at')->nullable();
+-            $table->timestamp('expires_at')->nullable()->index();
+-            $table->timestamps();
+-        });
++        if (! Schema::hasTable('personal_access_tokens')) {
++            Schema::create('personal_access_tokens', function (Blueprint $table) {
++                $table->id();
++                $table->morphs('tokenable');
++                $table->text('name');
++                $table->string('token', 64)->unique();
++                $table->text('abilities')->nullable();
++                $table->timestamp('last_used_at')->nullable();
++                $table->timestamp('expires_at')->nullable()->index();
++                $table->timestamps();
++            });
++        }
+     }
+ 
+     /**
+diff --git a/database/migrations/2026_05_31_000001_create_telegram_alert_logs_table.php b/database/migrations/2026_05_31_000001_create_telegram_alert_logs_table.php
+index a16d38a..5ae1e43 100644
+--- a/database/migrations/2026_05_31_000001_create_telegram_alert_logs_table.php
++++ b/database/migrations/2026_05_31_000001_create_telegram_alert_logs_table.php
+@@ -8,24 +8,26 @@
+ {
+     public function up(): void
+     {
+-        Schema::create('telegram_alert_logs', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('status', 20);           
+-            $table->unsignedBigInteger('sensor_log_id')->nullable(); 
+-            $table->decimal('moisture_percent', 6, 2)->nullable();
+-            $table->decimal('pitch', 8, 4)->nullable();
+-            $table->decimal('roll', 8, 4)->nullable();
+-            $table->decimal('vibration', 10, 6)->nullable();
+-            $table->decimal('rf_confidence', 5, 4)->nullable();
+-            $table->decimal('lstm_confidence', 5, 4)->nullable();
+-            $table->boolean('sent')->default(false);
+-            $table->text('error_message')->nullable();
+-            $table->timestamp('sensor_timestamp')->nullable();
+-            $table->timestamps();
++        if (! Schema::hasTable('telegram_alert_logs')) {
++            Schema::create('telegram_alert_logs', function (Blueprint $table) {
++                $table->id();
++                $table->string('status', 20);           
++                $table->unsignedBigInteger('sensor_log_id')->nullable(); 
++                $table->decimal('moisture_percent', 6, 2)->nullable();
++                $table->decimal('pitch', 8, 4)->nullable();
++                $table->decimal('roll', 8, 4)->nullable();
++                $table->decimal('vibration', 10, 6)->nullable();
++                $table->decimal('rf_confidence', 5, 4)->nullable();
++                $table->decimal('lstm_confidence', 5, 4)->nullable();
++                $table->boolean('sent')->default(false);
++                $table->text('error_message')->nullable();
++                $table->timestamp('sensor_timestamp')->nullable();
++                $table->timestamps();
+ 
+-            $table->index('status');
+-            $table->index('created_at');
+-        });
++                $table->index('status');
++                $table->index('created_at');
++            });
++        }
+     }
+ 
+     public function down(): void
+diff --git a/database/migrations/2026_07_24_000001_add_rainfall_and_deep_moisture_to_sensor_data_table.php b/database/migrations/2026_07_24_000001_add_rainfall_and_deep_moisture_to_sensor_data_table.php
+index 4ab3a48..7520259 100644
+--- a/database/migrations/2026_07_24_000001_add_rainfall_and_deep_moisture_to_sensor_data_table.php
++++ b/database/migrations/2026_07_24_000001_add_rainfall_and_deep_moisture_to_sensor_data_table.php
+@@ -4,27 +4,24 @@
+ use Illuminate\Database\Schema\Blueprint;
+ use Illuminate\Support\Facades\Schema;
+ 
+-/**
+- * Kolom untuk sensor yang masih berstatus "rencana pengadaan" pada Tabel 2
+- * proposal LARAS: rain gauge (curah hujan) dan probe kelembapan tanah kedalaman kedua.
+- * Kolom dibuat nullable supaya baris lama tetap kompatibel selama hardware belum terpasang.
+- */
+ return new class extends Migration
+ {
+     public function up(): void
+     {
+         Schema::table('sensor_data', function (Blueprint $table) {
+-            $table->float('rainfall_mm')->nullable()->after('moisture_percent')
+-                ->comment('Curah hujan (mm), diisi setelah rain gauge tipping bucket terpasang');
+-            $table->float('moisture_percent_deep')->nullable()->after('rainfall_mm')
+-                ->comment('Kelembapan tanah probe kedalaman kedua, diisi setelah probe dalam terpasang');
++            if (! Schema::hasColumn('sensor_data', 'rainfall_mm')) {
++                $table->double('rainfall_mm')->nullable()
++                    ->comment('Curah hujan (mm), diisi setelah rain gauge tipping bucket terpasang');
++            }
++            if (! Schema::hasColumn('sensor_data', 'moisture_percent_deep')) {
++                $table->double('moisture_percent_deep')->nullable()
++                    ->comment('Kelembapan tanah probe kedalaman kedua, diisi setelah probe dalam terpasang');
++            }
+         });
+     }
+ 
+     public function down(): void
+     {
+-        Schema::table('sensor_data', function (Blueprint $table) {
+-            $table->dropColumn(['rainfall_mm', 'moisture_percent_deep']);
+-        });
++        // Kolom ini bagian dari skema inti sensor_data, tidak di-drop saat rollback.
+     }
+ };
+diff --git a/database/migrations/2026_07_24_000002_create_evacuation_routes_table.php b/database/migrations/2026_07_24_000002_create_evacuation_routes_table.php
+index 847b19c..257a8f4 100644
+--- a/database/migrations/2026_07_24_000002_create_evacuation_routes_table.php
++++ b/database/migrations/2026_07_24_000002_create_evacuation_routes_table.php
+@@ -12,17 +12,19 @@
+ {
+     public function up(): void
+     {
+-        Schema::create('evacuation_routes', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('name');
+-            $table->text('description')->nullable();
+-            $table->json('waypoints')->nullable()->comment('Array koordinat lat/lng rute evakuasi');
+-            $table->string('meeting_point_name')->nullable();
+-            $table->decimal('meeting_point_lat', 10, 7)->nullable();
+-            $table->decimal('meeting_point_lng', 10, 7)->nullable();
+-            $table->boolean('validated_by_bpbd')->default(false);
+-            $table->timestamps();
+-        });
++        if (! Schema::hasTable('evacuation_routes')) {
++            Schema::create('evacuation_routes', function (Blueprint $table) {
++                $table->id();
++                $table->string('name');
++                $table->text('description')->nullable();
++                $table->json('waypoints')->nullable()->comment('Array koordinat lat/lng rute evakuasi');
++                $table->string('meeting_point_name')->nullable();
++                $table->decimal('meeting_point_lat', 10, 7)->nullable();
++                $table->decimal('meeting_point_lng', 10, 7)->nullable();
++                $table->boolean('validated_by_bpbd')->default(false);
++                $table->timestamps();
++            });
++        }
+     }
+ 
+     public function down(): void
+diff --git a/database/migrations/2026_07_24_000003_create_sos_reports_table.php b/database/migrations/2026_07_24_000003_create_sos_reports_table.php
+index cbc3f12..799c476 100644
+--- a/database/migrations/2026_07_24_000003_create_sos_reports_table.php
++++ b/database/migrations/2026_07_24_000003_create_sos_reports_table.php
+@@ -11,18 +11,20 @@
+ {
+     public function up(): void
+     {
+-        Schema::create('sos_reports', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('reporter_name')->nullable();
+-            $table->string('phone')->nullable();
+-            $table->enum('type', ['sos', 'check_in'])->default('sos');
+-            $table->decimal('lat', 10, 7)->nullable();
+-            $table->decimal('lng', 10, 7)->nullable();
+-            $table->foreignId('evacuation_route_id')->nullable()->constrained('evacuation_routes')->nullOnDelete();
+-            $table->text('notes')->nullable();
+-            $table->timestamp('reported_at')->useCurrent();
+-            $table->timestamps();
+-        });
++        if (! Schema::hasTable('sos_reports')) {
++            Schema::create('sos_reports', function (Blueprint $table) {
++                $table->id();
++                $table->string('reporter_name')->nullable();
++                $table->string('phone')->nullable();
++                $table->enum('type', ['sos', 'check_in'])->default('sos');
++                $table->decimal('lat', 10, 7)->nullable();
++                $table->decimal('lng', 10, 7)->nullable();
++                $table->foreignId('evacuation_route_id')->nullable()->constrained('evacuation_routes')->nullOnDelete();
++                $table->text('notes')->nullable();
++                $table->timestamp('reported_at')->useCurrent();
++                $table->timestamps();
++            });
++        }
+     }
+ 
+     public function down(): void
+diff --git a/database/migrations/2026_07_26_000001_create_landscape_assessments_table.php b/database/migrations/2026_07_26_000001_create_landscape_assessments_table.php
+index 724e6a6..7f98b4a 100644
+--- a/database/migrations/2026_07_26_000001_create_landscape_assessments_table.php
++++ b/database/migrations/2026_07_26_000001_create_landscape_assessments_table.php
+@@ -4,28 +4,37 @@
+ use Illuminate\Database\Schema\Blueprint;
+ use Illuminate\Support\Facades\Schema;
+ 
++/**
++ * Data kualitatif lanskap per node sensor, diisi oleh Admin/Kader
++ * (sesuai skema Supabase: wajib terhubung ke node & user pengisi).
++ */
+ return new class extends Migration
+ {
+     public function up(): void
+     {
++        if (Schema::hasTable('landscape_assessments')) {
++            return;
++        }
++
+         Schema::create('landscape_assessments', function (Blueprint $table) {
+             $table->id();
++            $table->foreignId('node_id')->constrained('sensor_nodes', indexName: 'fk_assessment_node');
++            $table->foreignId('user_id')->constrained('users', indexName: 'fk_assessment_user');
+ 
+-            $table->string('location_name');
+-            $table->text('field_notes')->nullable();
+-
++            $table->string('location_name')->nullable();
+             $table->string('dominant_vegetation')->nullable();
+             $table->string('slope_classification')->nullable();
+             $table->string('drainage_condition')->nullable();
+             $table->string('soil_cracking')->nullable();
+             $table->string('soil_type')->nullable();
+             $table->string('landslide_history')->nullable();
+-            $table->string('upstream_land_use')->nullable();
+             $table->boolean('artificial_slope_cutting')->nullable();
+             $table->string('geosynthetic_reinforcement')->nullable();
++            $table->text('field_notes')->nullable();
+ 
+-            $table->foreignId('sensor_log_id')->nullable();
+-            $table->timestamps();
++            $table->timestamp('created_at')->nullable()->useCurrent();
++            $table->timestamp('updated_at')->nullable()->useCurrent();
++            $table->text('sensor_log_id')->nullable();
+         });
+     }
+ 
+diff --git a/database/migrations/2026_07_26_000002_drop_upstream_land_use_column.php b/database/migrations/2026_07_26_000002_drop_upstream_land_use_column.php
+index bcefccf..bbe6f68 100644
+--- a/database/migrations/2026_07_26_000002_drop_upstream_land_use_column.php
++++ b/database/migrations/2026_07_26_000002_drop_upstream_land_use_column.php
+@@ -8,15 +8,15 @@
+ {
+     public function up(): void
+     {
+-        Schema::table('landscape_assessments', function (Blueprint $table) {
+-            $table->dropColumn('upstream_land_use');
+-        });
++        if (Schema::hasColumn('landscape_assessments', 'upstream_land_use')) {
++            Schema::table('landscape_assessments', function (Blueprint $table) {
++                $table->dropColumn('upstream_land_use');
++            });
++        }
+     }
+ 
+     public function down(): void
+     {
+-        Schema::table('landscape_assessments', function (Blueprint $table) {
+-            $table->string('upstream_land_use')->nullable();
+-        });
++        // Kolom sudah tidak dipakai, tidak dikembalikan.
+     }
+ };
+diff --git a/database/migrations/2026_07_27_000001_create_sensor_nodes_table.php b/database/migrations/2026_07_27_000001_create_sensor_nodes_table.php
+deleted file mode 100644
+index a9095c1..0000000
+--- a/database/migrations/2026_07_27_000001_create_sensor_nodes_table.php
++++ /dev/null
+@@ -1,28 +0,0 @@
+-<?php
+-
+-use Illuminate\Database\Migrations\Migration;
+-use Illuminate\Database\Schema\Blueprint;
+-use Illuminate\Support\Facades\Schema;
+-
+-return new class extends Migration
+-{
+-    public function up(): void
+-    {
+-        Schema::create('sensor_nodes', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('node_name');
+-            $table->decimal('lat', 10, 7);
+-            $table->decimal('lng', 10, 7);
+-            $table->string('status')->default('AMAN'); // AMAN | WASPADA | BAHAYA
+-            $table->string('desa')->nullable();
+-            $table->text('notes')->nullable();
+-            $table->foreignId('sensor_log_id')->nullable();
+-            $table->timestamps();
+-        });
+-    }
+-
+-    public function down(): void
+-    {
+-        Schema::dropIfExists('sensor_nodes');
+-    }
+-};
+diff --git a/database/migrations/2026_08_03_000001_create_evacuation_checkins_table.php b/database/migrations/2026_08_03_000001_create_evacuation_checkins_table.php
+index e6f68b7..0172988 100644
+--- a/database/migrations/2026_08_03_000001_create_evacuation_checkins_table.php
++++ b/database/migrations/2026_08_03_000001_create_evacuation_checkins_table.php
+@@ -8,16 +8,18 @@
+ {
+     public function up(): void
+     {
+-        Schema::create('evacuation_checkins', function (Blueprint $table) {
+-            $table->id();
+-            $table->string('posko_id'); // ID/Nama Posko (Contoh: Posko Cepokolimo, Posko Kembangbelor)
+-            $table->string('lokasi_posko'); // Detail Alamat/Lokasi Posko
+-            $table->string('nama_lengkap');
+-            $table->string('asal');
+-            $table->integer('usia');
+-            $table->enum('kondisi', ['Sehat', 'Luka Ringan', 'Luka Berat', 'Lansia / Rentan']);
+-            $table->timestamps();
+-        });
++        if (! Schema::hasTable('evacuation_checkins')) {
++            Schema::create('evacuation_checkins', function (Blueprint $table) {
++                $table->id();
++                $table->string('posko_id'); // ID/Nama Posko (Contoh: Posko Cepokolimo, Posko Kembangbelor)
++                $table->string('lokasi_posko'); // Detail Alamat/Lokasi Posko
++                $table->string('nama_lengkap');
++                $table->string('asal');
++                $table->integer('usia');
++                $table->enum('kondisi', ['Sehat', 'Luka Ringan', 'Luka Berat', 'Lansia / Rentan']);
++                $table->timestamps();
++            });
++        }
+     }
+ 
+     public function down(): void
+diff --git a/database/migrations/2026_10_12_000001_sync_users_table_with_supabase.php b/database/migrations/2026_10_12_000001_sync_users_table_with_supabase.php
+new file mode 100644
+index 0000000..f0fdd3e
+--- /dev/null
++++ b/database/migrations/2026_10_12_000001_sync_users_table_with_supabase.php
+@@ -0,0 +1,47 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\DB;
++use Illuminate\Support\Facades\Schema;
++
++/**
++ * Menyamakan tabel users di Supabase dengan kebutuhan login Laravel:
++ * - menambah kolom phone/role/status jika belum ada,
++ * - menambah kolom remember_token (dibutuhkan fitur "Ingat saya"),
++ * - membetulkan default role 'KADER' (huruf besar) yang melanggar
++ *   CHECK constraint role IN ('admin','kader') menjadi 'kader'.
++ */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::table('users', function (Blueprint $table) {
++            if (! Schema::hasColumn('users', 'phone')) {
++                $table->string('phone')->nullable();
++            }
++            if (! Schema::hasColumn('users', 'role')) {
++                $table->string('role')->default('kader');
++            }
++            if (! Schema::hasColumn('users', 'status')) {
++                $table->string('status')->default('ACTIVE');
++            }
++            if (! Schema::hasColumn('users', 'remember_token')) {
++                $table->rememberToken();
++            }
++        });
++
++        if (DB::getDriverName() === 'pgsql') {
++            DB::statement("ALTER TABLE users ALTER COLUMN role SET DEFAULT 'kader'");
++        }
++    }
++
++    public function down(): void
++    {
++        if (Schema::hasColumn('users', 'remember_token')) {
++            Schema::table('users', function (Blueprint $table) {
++                $table->dropColumn('remember_token');
++            });
++        }
++    }
++};
+diff --git a/database/migrations/optional/2026_10_12_100000_drop_unused_tables.php b/database/migrations/optional/2026_10_12_100000_drop_unused_tables.php
+new file mode 100644
+index 0000000..28f5d6c
+--- /dev/null
++++ b/database/migrations/optional/2026_10_12_100000_drop_unused_tables.php
+@@ -0,0 +1,79 @@
++<?php
++
++use Illuminate\Database\Migrations\Migration;
++use Illuminate\Database\Schema\Blueprint;
++use Illuminate\Support\Facades\Schema;
++
++/**
++ * OPSIONAL - TIDAK ikut "php artisan migrate" biasa.
++ *
++ * Menghapus tabel yang tidak dipakai kode web LARAS:
++ *  - sos_reports         : tidak ada controller/model; check-in warga sudah pakai evacuation_checkins
++ *  - evacuation_routes   : tidak ada controller/model; rute evakuasi ditulis langsung di peta-evakuasi.blade.php
++ *  - personal_access_tokens : token API Sanctum, tidak dipakai (login memakai session)
++ *
++ * SEBELUM MENJALANKAN: cek dulu isinya di Supabase SQL Editor dan pastikan
++ * tidak ada aplikasi lain (mis. script Python / app mobile) yang memakainya:
++ *   select count(*) from sos_reports;
++ *   select count(*) from evacuation_routes;
++ *   select count(*) from personal_access_tokens;
++ *
++ * Cara menjalankan:
++ *   php artisan migrate --path=database/migrations/optional/2026_10_12_100000_drop_unused_tables.php
++ * Batalkan (membuat ulang tabel kosong):
++ *   php artisan migrate:rollback --path=database/migrations/optional/2026_10_12_100000_drop_unused_tables.php
++ */
++return new class extends Migration
++{
++    public function up(): void
++    {
++        Schema::dropIfExists('sos_reports');        // dihapus duluan karena punya FK ke evacuation_routes
++        Schema::dropIfExists('evacuation_routes');
++        Schema::dropIfExists('personal_access_tokens');
++    }
++
++    public function down(): void
++    {
++        if (! Schema::hasTable('evacuation_routes')) {
++            Schema::create('evacuation_routes', function (Blueprint $table) {
++                $table->id();
++                $table->string('name');
++                $table->text('description')->nullable();
++                $table->json('waypoints')->nullable();
++                $table->string('meeting_point_name')->nullable();
++                $table->decimal('meeting_point_lat', 10, 7)->nullable();
++                $table->decimal('meeting_point_lng', 10, 7)->nullable();
++                $table->boolean('validated_by_bpbd')->default(false);
++                $table->timestamps();
++            });
++        }
++
++        if (! Schema::hasTable('sos_reports')) {
++            Schema::create('sos_reports', function (Blueprint $table) {
++                $table->id();
++                $table->string('reporter_name')->nullable();
++                $table->string('phone')->nullable();
++                $table->enum('type', ['sos', 'check_in'])->default('sos');
++                $table->decimal('lat', 10, 7)->nullable();
++                $table->decimal('lng', 10, 7)->nullable();
++                $table->foreignId('evacuation_route_id')->nullable()->constrained('evacuation_routes')->nullOnDelete();
++                $table->text('notes')->nullable();
++                $table->timestamp('reported_at')->useCurrent();
++                $table->timestamps();
++            });
++        }
++
++        if (! Schema::hasTable('personal_access_tokens')) {
++            Schema::create('personal_access_tokens', function (Blueprint $table) {
++                $table->id();
++                $table->morphs('tokenable');
++                $table->text('name');
++                $table->string('token', 64)->unique();
++                $table->text('abilities')->nullable();
++                $table->timestamp('last_used_at')->nullable();
++                $table->timestamp('expires_at')->nullable()->index();
++                $table->timestamps();
++            });
++        }
++    }
++};
+diff --git a/database/seeders/DatabaseSeeder.php b/database/seeders/DatabaseSeeder.php
+index 6b901f8..b077916 100644
+--- a/database/seeders/DatabaseSeeder.php
++++ b/database/seeders/DatabaseSeeder.php
+@@ -3,23 +3,30 @@
+ namespace Database\Seeders;
+ 
+ use App\Models\User;
+-use Illuminate\Database\Console\Seeds\WithoutModelEvents;
+ use Illuminate\Database\Seeder;
+ 
+ class DatabaseSeeder extends Seeder
+ {
+-    use WithoutModelEvents;
+-
+     /**
+      * Seed the application's database.
++     *
++     * Membuat akun Admin pertama. Setelah login, Admin bisa membuat akun
++     * Kader/Admin lain lewat menu "Tambah Petugas" (/register).
++     *
++     * Kredensial bisa diatur di .env:
++     *   ADMIN_EMAIL=admin@laras.id
++     *   ADMIN_PASSWORD=rahasia123
+      */
+     public function run(): void
+     {
+-        // User::factory(10)->create();
+-
+-        User::factory()->create([
+-            'name' => 'Test User',
+-            'email' => 'test@example.com',
+-        ]);
++        User::updateOrCreate(
++            ['email' => env('ADMIN_EMAIL', 'admin@laras.id')],
++            [
++                'name' => env('ADMIN_NAME', 'Admin LARAS'),
++                'password' => env('ADMIN_PASSWORD', 'admin12345'),
++                'role' => User::ROLE_ADMIN,
++                'status' => 'ACTIVE',
++            ]
++        );
+     }
+ }
+diff --git a/phpunit.xml b/phpunit.xml
+index e7f0a48..bd92826 100644
+--- a/phpunit.xml
++++ b/phpunit.xml
+@@ -19,6 +19,7 @@
+     </source>
+     <php>
+         <env name="APP_ENV" value="testing"/>
++        <env name="APP_KEY" value="base64:2fl+Ktvkfl+Fuz4Qp/A75G2RTiWVA/ZoKZvp6fiiM10="/>
+         <env name="APP_MAINTENANCE_DRIVER" value="file"/>
+         <env name="BCRYPT_ROUNDS" value="4"/>
+         <env name="BROADCAST_CONNECTION" value="null"/>
+diff --git a/resources/views/auth/login.blade.php b/resources/views/auth/login.blade.php
+index 2b30a20..014d4fe 100644
+--- a/resources/views/auth/login.blade.php
++++ b/resources/views/auth/login.blade.php
+@@ -72,9 +72,18 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+             </div>
+ 
++            <label class="flex items-center gap-2 text-xs text-slate-600">
++                <input type="checkbox" name="remember" value="1" class="accent-blue-600">
++                Ingat saya
++            </label>
++
+             <button type="submit" class="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition duration-200">
+                 Masuk ke Sistem
+             </button>
++
++            <p class="text-center text-xs text-slate-500 pt-2 border-t border-slate-100">
++                Akun petugas dibuat oleh <strong>Admin</strong>. Warga tidak perlu login untuk melihat informasi.
++            </p>
+         </form>
+ 
+     </div>
+@@ -83,11 +92,5 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-
+         LARAS Early Warning System &copy; 2026
+     </footer>
+ 
+-    <div class="text-center pt-4 border-t border-slate-100 mt-4">
+-        <p class="text-xs text-slate-500">Belum punya akun petugas? 
+-            <a href="{{ route('register') }}" class="text-blue-600 font-bold hover:underline">Buat akun baru →</a>
+-        </p>
+-    </div>
+-
+ </body>
+ </html>
+\ No newline at end of file
+diff --git a/resources/views/auth/register.blade.php b/resources/views/auth/register.blade.php
+index 638cb31..df49221 100644
+--- a/resources/views/auth/register.blade.php
++++ b/resources/views/auth/register.blade.php
+@@ -22,8 +22,15 @@
+             </a>
+             <h1 class="text-xl font-black text-slate-900 tracking-tight">Pendaftaran Akun Petugas</h1>
+             <p class="text-xs text-slate-500 mt-1">Daftarkan akun Admin atau Kader baru untuk sistem LARAS.</p>
++            <p class="text-[11px] text-slate-400 mt-1">Login sebagai: <strong>{{ Auth::user()->name }}</strong> (admin)</p>
+         </div>
+ 
++        @if(session('success'))
++        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold p-3 rounded-xl">
++            {{ session('success') }}
++        </div>
++        @endif
++
+         @if($errors->any())
+         <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs p-3 rounded-xl space-y-1">
+             <p class="font-bold">Periksa kembali isian form:</p>
+@@ -46,8 +53,8 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-
+             </div>
+ 
+             <div>
+-                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email / Username <span class="text-rose-500">*</span></label>
+-                <input type="text" name="email" value="{{ old('email') }}" required placeholder="admin1@laras.id"
++                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Email <span class="text-rose-500">*</span></label>
++                <input type="email" name="email" value="{{ old('email') }}" required placeholder="admin1@laras.id"
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+             </div>
+ 
+@@ -60,8 +67,8 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-
+             <div>
+                 <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Peran (Role) <span class="text-rose-500">*</span></label>
+                 <select name="role" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none bg-white font-medium">
+-                    <option value="kader">Kader</option>
+-                    <option value="admin">Admin</option>
++                    <option value="kader" @selected(old('role', 'kader') === 'kader')>Kader</option>
++                    <option value="admin" @selected(old('role') === 'admin')>Admin</option>
+                 </select>
+             </div>
+ 
+@@ -71,15 +78,19 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-
+                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+             </div>
+ 
++            <div>
++                <label class="block text-xs font-bold uppercase tracking-wider text-slate-600 mb-1.5">Ulangi Password <span class="text-rose-500">*</span></label>
++                <input type="password" name="password_confirmation" required placeholder="Ketik ulang password"
++                       class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 outline-none">
++            </div>
++
+             <button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-widest rounded-xl shadow-md transition">
+-                Buat Akun &amp; Masuk
++                Buat Akun Petugas
+             </button>
+         </form>
+ 
+         <div class="text-center pt-2 border-t border-slate-100">
+-            <p class="text-xs text-slate-500">Sudah punya akun? 
+-                <a href="{{ route('login') }}" class="text-blue-600 font-bold hover:underline">Masuk di sini</a>
+-            </p>
++            <a href="{{ route('lanskap.index') }}" class="text-xs text-blue-600 font-bold hover:underline">← Kembali ke Data Lanskap</a>
+         </div>
+ 
+     </div>
+diff --git a/resources/views/dashboard.blade.php b/resources/views/dashboard.blade.php
+index 50aa7d5..a643119 100644
+--- a/resources/views/dashboard.blade.php
++++ b/resources/views/dashboard.blade.php
+@@ -3,6 +3,7 @@
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
++    <meta name="csrf-token" content="{{ csrf_token() }}">
+     <title>LARAS Control Center — Landslide Alert and Rescue Adaptive System</title>
+     <script src="https://cdn.tailwindcss.com"></script>
+     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+@@ -658,18 +659,16 @@
+         <!-- Sisi Kanan: Menu Navigasi + Auth Status -->
+         <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
+             <!-- Tombol Edukasi (Publik) -->
+-            <a href="/edukasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-bold text-xs rounded-xl transition shrink-0">
++            <a href="/#edukasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-bold text-xs rounded-xl transition shrink-0">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+                 Edukasi
+             </a>
+ 
+-            <!-- Tombol Data Lanskap (HANYA MUNCUL JIKA USER SUDAH LOGIN) -->
+-            @auth
++            <!-- Tombol Data Lanskap (Publik: warga lihat saja, Admin/Kader bisa edit) -->
+             <a href="/lanskap" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-xl transition shrink-0">
+                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
+                 Data Lanskap
+             </a>
+-            @endauth
+ 
+             <!-- Tombol Peta Evakuasi (Publik) -->
+             <a href="/peta-evakuasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
+@@ -1873,7 +1872,5 @@ function loadForecastData() {
+ 
+ </script>
+ 
+-<meta name="csrf-token" content="{{ csrf_token() }}">
+-
+ </body>
+ </html>
+\ No newline at end of file
+diff --git a/resources/views/lanskap.blade.php b/resources/views/lanskap.blade.php
+index d658619..c86653d 100644
+--- a/resources/views/lanskap.blade.php
++++ b/resources/views/lanskap.blade.php
+@@ -32,6 +32,9 @@
+             <a href="{{ route('peta-evakuasi.index') }}" class="text-xs font-bold text-slate-600 hover:text-blue-600 transition">Peta Evakuasi</a>
+ 
+             <!-- STATUS AUTENTIKASI -->
++            @can('kelola-akun')
++                <a href="{{ route('register') }}" class="text-xs font-bold text-slate-600 hover:text-blue-600 transition">Tambah Petugas</a>
++            @endcan
+             @auth
+                 <div class="flex items-center space-x-3 border-l pl-4 border-slate-200">
+                     <div class="text-right">
+@@ -77,26 +80,57 @@
+         </div>
+         @endif
+ 
+-        <!-- FORM INPUT DATA (HANYA BISA DIAKSES OLEH ADMIN & KADER) -->
+-        @auth
+-            @if(in_array(Auth::user()->role, ['admin', 'kader']))
+-            <form method="POST" action="{{ route('lanskap.store') }}" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-8">
++        <!-- FORM INPUT / EDIT DATA (HANYA ADMIN & KADER) -->
++        @can('kelola-data')
++            @php
++                // Nilai awal form: old() setelah validasi gagal, lalu data yang sedang diedit
++                $val = fn ($field) => old($field, $editing?->{$field});
++                $slopeCut = old('artificial_slope_cutting',
++                    $editing === null || $editing->artificial_slope_cutting === null
++                        ? null
++                        : ($editing->artificial_slope_cutting ? 'ada' : 'tidak_ada'));
++            @endphp
++            <form method="POST"
++                  action="{{ $editing ? route('lanskap.update', $editing->id) : route('lanskap.store') }}"
++                  class="bg-white rounded-2xl border {{ $editing ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200' }} shadow-sm p-6 md:p-8 space-y-8">
+                 @csrf
++                @if($editing)
++                    @method('PUT')
++                    <div class="flex items-center justify-between bg-amber-50 border border-amber-200 text-amber-800 text-xs px-4 py-3 rounded-xl">
++                        <span>✏️ Mengedit data: <strong>{{ $editing->location_name }}</strong></span>
++                        <a href="{{ route('lanskap.index') }}" class="font-bold hover:underline">Batal edit</a>
++                    </div>
++                @endif
+ 
+                 <!-- SECTION 1: IDENTITAS LOKASI -->
+                 <div>
+                     <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 font-mono">Identitas Lokasi</h3>
++                    @if($nodes->isEmpty())
++                    <div class="mb-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs px-4 py-3 rounded-xl">
++                        Belum ada data di tabel <strong>sensor_nodes</strong>. Tambahkan node sensor terlebih dahulu di database sebelum mengisi data lanskap.
++                    </div>
++                    @endif
+                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
++                        <div>
++                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Node Sensor <span class="text-rose-500">*</span></label>
++                            <select name="node_id" required
++                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
++                                <option value="">— Pilih Node Sensor —</option>
++                                @foreach($nodes as $node)
++                                <option value="{{ $node->id }}" @selected((string) $val('node_id') === (string) $node->id)>{{ $node->label }}</option>
++                                @endforeach
++                            </select>
++                        </div>
+                         <div>
+                             <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Nama / ID Lokasi <span class="text-rose-500">*</span></label>
+-                            <input type="text" name="location_name" value="{{ old('location_name') }}" required
++                            <input type="text" name="location_name" value="{{ $val('location_name') }}" required
+                                    placeholder="Contoh: Titik Sensor A - Lereng Utara"
+                                    class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                         </div>
+                         <div class="md:col-span-2">
+                             <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Catatan Kondisi Lapangan</label>
+                             <textarea name="field_notes" rows="3" placeholder="Catatan bebas, observasi tambahan dari lapangan..."
+-                                      class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">{{ old('field_notes') }}</textarea>
++                                      class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">{{ $val('field_notes') }}</textarea>
+                         </div>
+                     </div>
+                 </div>
+@@ -125,7 +159,7 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white fo
+                                 <option value="">— Pilih {{ $label }} —</option>
+                                 @if(isset($options[$field]))
+                                     @foreach($options[$field] as $opt)
+-                                    <option value="{{ $opt }}" @selected(old($field) === $opt)>{{ $opt }}</option>
++                                    <option value="{{ $opt }}" @selected($val($field) === $opt)>{{ $opt }}</option>
+                                     @endforeach
+                                 @endif
+                             </select>
+@@ -144,11 +178,11 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white fo
+                             <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Pemotongan Lereng Buatan Manusia</label>
+                             <div class="flex gap-3 mt-1.5">
+                                 <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 text-sm cursor-pointer flex-1 justify-center hover:bg-slate-50">
+-                                    <input type="radio" name="artificial_slope_cutting" value="ada" @checked(old('artificial_slope_cutting') === 'ada') class="accent-blue-600">
++                                    <input type="radio" name="artificial_slope_cutting" value="ada" @checked($slopeCut === 'ada') class="accent-blue-600">
+                                     Ada
+                                 </label>
+                                 <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 text-sm cursor-pointer flex-1 justify-center hover:bg-slate-50">
+-                                    <input type="radio" name="artificial_slope_cutting" value="tidak_ada" @checked(old('artificial_slope_cutting') === 'tidak_ada') class="accent-blue-600">
++                                    <input type="radio" name="artificial_slope_cutting" value="tidak_ada" @checked($slopeCut === 'tidak_ada') class="accent-blue-600">
+                                     Tidak Ada
+                                 </label>
+                             </div>
+@@ -161,7 +195,7 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white fo
+                                 <option value="">— Pilih Jenis Perkuatan —</option>
+                                 @if(isset($options['geosynthetic_reinforcement']))
+                                     @foreach($options['geosynthetic_reinforcement'] as $opt)
+-                                    <option value="{{ $opt }}" @selected(old('geosynthetic_reinforcement') === $opt)>{{ $opt }}</option>
++                                    <option value="{{ $opt }}" @selected($val('geosynthetic_reinforcement') === $opt)>{{ $opt }}</option>
+                                     @endforeach
+                                 @endif
+                             </select>
+@@ -172,18 +206,19 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white fo
+ 
+                 <div class="pt-2 flex justify-end">
+                     <button type="submit" class="px-7 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs uppercase tracking-wider rounded-xl shadow-md transition-all">
+-                        Simpan Data Lanskap
++                        {{ $editing ? 'Simpan Perubahan' : 'Simpan Data Lanskap' }}
+                     </button>
+                 </div>
+             </form>
+-            @endif
+         @else
+-            <!-- INFORMASI UNTUK WARGA / GUEST -->
+-            <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-4 rounded-2xl flex justify-between items-center shadow-sm">
+-                <span>⚠️ Anda mengakses halaman ini sebagai <strong>Warga (Guest)</strong>. Pengisian data kualitatif lanskap hanya dikelola oleh Kader &amp; Admin.</span>
+-                <a href="{{ route('login') }}" class="font-bold text-blue-600 hover:underline">Login Petugas →</a>
++            <!-- INFORMASI UNTUK WARGA / GUEST (MODE LIHAT SAJA) -->
++            <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs p-4 rounded-2xl flex justify-between items-center gap-3 shadow-sm">
++                <span>⚠️ Anda mengakses halaman ini sebagai <strong>Warga (Guest)</strong> — mode lihat saja. Pengisian &amp; pengeditan data lanskap hanya dikelola oleh Kader &amp; Admin.</span>
++                @guest
++                <a href="{{ route('login') }}" class="font-bold text-blue-600 hover:underline shrink-0">Login Petugas →</a>
++                @endguest
+             </div>
+-        @endauth
++        @endcan
+ 
+         <!-- RIWAYAT DATA LANSKAP (DAPAT DILIHAT OLEH SEMUA ORANG) -->
+         <div class="mt-10 space-y-4">
+@@ -199,20 +234,25 @@ class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white fo
+                 <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3">
+                     <div class="flex items-start justify-between gap-3 border-b border-slate-100 pb-3">
+                         <div>
+-                            <h4 class="font-bold text-slate-900 text-sm">{{ $entry->location_name }}</h4>
+-                            <p class="text-[11px] text-slate-400 font-mono mt-0.5">{{ $entry->created_at->format('d/m/Y H:i') }} WIB</p>
++                            <h4 class="font-bold text-slate-900 text-sm">{{ $entry->location_name ?: ($entry->node?->node_name ?? 'Tanpa nama') }}</h4>
++                            <p class="text-[11px] text-slate-400 font-mono mt-0.5">
++                                {{ $entry->node?->label ?? 'Node tidak diketahui' }}
++                                · {{ optional($entry->updated_at ?? $entry->created_at)->format('d/m/Y H:i') }} WIB
++                                @if($entry->user) · oleh {{ $entry->user->name }} @endif
++                            </p>
+                         </div>
+ 
+-                        <!-- TOMBOL HAPUS (HANYA DITAMPILKAN KE ADMIN & KADER) -->
+-                        @auth
+-                            @if(in_array(Auth::user()->role, ['admin', 'kader']))
+-                            <form method="POST" action="{{ route('lanskap.destroy', $entry->id) }}" onsubmit="return confirm('Hapus data lanskap ini?')">
+-                                @csrf
+-                                @method('DELETE')
+-                                <button type="submit" class="text-rose-500 hover:text-rose-700 text-xs font-bold hover:underline">Hapus</button>
+-                            </form>
+-                            @endif
+-                        @endauth
++                        <!-- TOMBOL EDIT & HAPUS (HANYA ADMIN & KADER) -->
++                        @can('kelola-data')
++                            <div class="flex items-center gap-3 shrink-0">
++                                <a href="{{ route('lanskap.index', ['edit' => $entry->id]) }}" class="text-blue-600 hover:text-blue-800 text-xs font-bold hover:underline">Edit</a>
++                                <form method="POST" action="{{ route('lanskap.destroy', $entry->id) }}" onsubmit="return confirm('Hapus data lanskap ini?')">
++                                    @csrf
++                                    @method('DELETE')
++                                    <button type="submit" class="text-rose-500 hover:text-rose-700 text-xs font-bold hover:underline">Hapus</button>
++                                </form>
++                            </div>
++                        @endcan
+                     </div>
+ 
+                     <div class="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2 text-xs">
+diff --git a/resources/views/peta-evakuasi.blade.php b/resources/views/peta-evakuasi.blade.php
+index 2c7f175..756537b 100644
+--- a/resources/views/peta-evakuasi.blade.php
++++ b/resources/views/peta-evakuasi.blade.php
+@@ -72,6 +72,21 @@
+                 <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                 SYNC ACTIVE
+             </div>
++
++            <div class="h-6 w-[1px] bg-slate-200 mx-1 shrink-0"></div>
++
++            @auth
++                <div class="text-right hidden sm:block shrink-0">
++                    <p class="text-xs font-bold text-slate-800 leading-tight">{{ Auth::user()->name }}</p>
++                    <p class="text-[9px] uppercase font-mono text-blue-600 font-semibold leading-tight">{{ Auth::user()->role }}</p>
++                </div>
++                <form action="{{ route('logout') }}" method="POST" class="inline shrink-0">
++                    @csrf
++                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl border border-rose-200 transition">Logout</button>
++                </form>
++            @else
++                <a href="{{ route('login') }}" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-xl shadow-sm transition shrink-0">Login Petugas</a>
++            @endauth
+         </div>
+     </nav>
+ 
+@@ -135,10 +150,13 @@
+             @endforelse
+         </div>
+ 
++        @php $canManage = auth()->user()?->can('kelola-data') ?? false; @endphp
++
+         <!-- Section Sistem Check-in Warga Posko -->
+         <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+ 
+-            <!-- Form Check-in Warga (Input Manual Kader) -->
++            <!-- Form Check-in Warga (HANYA ADMIN & KADER) -->
++            @can('kelola-data')
+             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-1">
+                 <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
+                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+@@ -198,6 +216,20 @@ class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2
+                     </button>
+                 </form>
+             </div>
++            @else
++            <!-- Info untuk Warga / Guest (mode lihat saja) -->
++            <div class="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm lg:col-span-1 text-xs text-amber-800 space-y-3 h-fit">
++                <div class="flex items-center gap-2 border-b border-amber-200 pb-3">
++                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
++                    <h3 class="font-bold text-amber-900 text-sm">Check-In Warga di Posko</h3>
++                </div>
++                <p>⚠️ Anda mengakses halaman ini sebagai <strong>Warga (Guest)</strong>. Pendataan check-in warga di posko hanya dilakukan oleh <strong>Kader &amp; Admin</strong>.</p>
++                <p>Silakan datang ke posko evakuasi terdekat dan laporkan diri Anda kepada petugas.</p>
++                @guest
++                <a href="{{ route('login') }}" class="inline-block font-bold text-blue-600 hover:underline">Login Petugas →</a>
++                @endguest
++            </div>
++            @endcan
+ 
+             <!-- Tabel Data Check-in Warga + FILTER POSKO -->
+             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
+@@ -239,6 +271,9 @@ class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2
+                             <th class="px-2 py-2.5 w-14">Usia</th>
+                             <th class="px-3 py-2.5 whitespace-nowrap">Kondisi</th>
+                             <th class="px-3 py-2.5 whitespace-nowrap">Waktu</th>
++                            @can('kelola-data')
++                            <th class="px-3 py-2.5 whitespace-nowrap">Aksi</th>
++                            @endcan
+                         </tr>
+                     </thead>
+                     <tbody id="bodyTabel">
+@@ -265,11 +300,16 @@ class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2
+                                     <span class="inline-block bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">Lansia / Rentan</span>
+                                 @endif
+                             </td>
+-                            <td class="px-3 py-2.5 text-slate-400 font-mono text-[11px] whitespace-nowrap align-top">{{ $warga->created_at->format('H:i') }} WIB</td>
++                            <td class="px-3 py-2.5 text-slate-400 font-mono text-[11px] whitespace-nowrap align-top">{{ optional($warga->created_at)->format('H:i') }} WIB</td>
++                            @can('kelola-data')
++                            <td class="px-3 py-2.5 align-top">
++                                <button type="button" onclick="hapusCheckin({{ $warga->id }})" class="text-rose-500 hover:text-rose-700 text-[11px] font-bold hover:underline">Hapus</button>
++                            </td>
++                            @endcan
+                         </tr>
+                         @empty
+                         <tr>
+-                            <td colspan="7" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko.</td>
++                            <td colspan="{{ $canManage ? 8 : 7 }}" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko.</td>
+                         </tr>
+                         @endforelse
+                     </tbody>
+@@ -288,6 +328,22 @@ class="w-full px-3 py-2 border border-slate-200 rounded-xl text-xs focus:ring-2
+ 
+     <script>
+         const nodes = @json($nodes);
++        const CAN_MANAGE = @json($canManage);
++        const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
++
++        // Cegah XSS: data warga dimasukkan ke innerHTML, jadi harus di-escape
++        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
++
++        // Baca respons JSON + tangani error auth / validasi dengan pesan yang jelas
++        async function handleJson(res) {
++            const body = await res.json().catch(() => ({}));
++            if (res.status === 401) throw new Error(body.message || 'Sesi Anda berakhir. Silakan login kembali sebagai Kader / Admin.');
++            if (res.status === 403) throw new Error(body.message || 'Akses ditolak. Hanya Kader / Admin yang boleh melakukan aksi ini.');
++            if (res.status === 419) throw new Error('Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.');
++            if (res.status === 422) throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message);
++            if (!res.ok) throw new Error(body.message || 'Terjadi kesalahan server.');
++            return body;
++        }
+ 
+         const map = L.map('map').setView([-7.66744, 112.53658], 13);
+ 
+@@ -362,50 +418,59 @@ className: '',
+             map.fitBounds(bounds, { padding: [40, 40] });
+         }
+ 
+-        // Auto-fill Teks Lokasi Posko saat Select Posko Berubah
++        // ===== Fitur check-in (hanya dirender untuk Admin & Kader) =====
+         const selectPosko = document.getElementById('selectPosko');
+         const teksLokasiPosko = document.getElementById('teksLokasiPosko');
++        const formCheckin = document.getElementById('formCheckin');
+ 
+-        selectPosko.addEventListener('change', function() {
+-            const selectedOption = this.options[this.selectedIndex];
+-            teksLokasiPosko.innerText = selectedOption.getAttribute('data-lokasi');
+-        });
++        if (CAN_MANAGE && formCheckin) {
++            selectPosko.addEventListener('change', function() {
++                const selectedOption = this.options[this.selectedIndex];
++                teksLokasiPosko.innerText = selectedOption.getAttribute('data-lokasi');
++            });
+ 
+-        // Handling Form Check-In
+-        const formCheckin = document.getElementById('formCheckin');
+-        formCheckin.addEventListener('submit', function(e) {
+-            e.preventDefault();
+-
+-            const selectedOption = selectPosko.options[selectPosko.selectedIndex];
+-
+-            const dataPayload = {
+-                posko_id: selectPosko.value,
+-                lokasi_posko: selectedOption.getAttribute('data-lokasi'),
+-                nama_lengkap: document.getElementById('nama_lengkap').value,
+-                asal: document.getElementById('asal').value,
+-                usia: document.getElementById('usia').value,
+-                kondisi: document.getElementById('kondisi').value
+-            };
+-
+-            fetch('{{ route("peta-evakuasi.checkin") }}', {
+-                method: 'POST',
+-                headers: {
+-                    'Content-Type': 'application/json',
+-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+-                },
+-                body: JSON.stringify(dataPayload)
+-            })
+-            .then(res => res.json())
+-            .then(res => {
+-                if(res.success) {
++            formCheckin.addEventListener('submit', function(e) {
++                e.preventDefault();
++
++                const dataPayload = {
++                    posko_id: selectPosko.value,
++                    nama_lengkap: document.getElementById('nama_lengkap').value,
++                    asal: document.getElementById('asal').value,
++                    usia: document.getElementById('usia').value,
++                    kondisi: document.getElementById('kondisi').value
++                };
++
++                fetch('{{ route("peta-evakuasi.checkin") }}', {
++                    method: 'POST',
++                    headers: {
++                        'Content-Type': 'application/json',
++                        'Accept': 'application/json',
++                        'X-CSRF-TOKEN': CSRF_TOKEN
++                    },
++                    body: JSON.stringify(dataPayload)
++                })
++                .then(handleJson)
++                .then(res => {
+                     alert(res.message);
+                     formCheckin.reset();
+                     teksLokasiPosko.innerText = selectPosko.options[0].getAttribute('data-lokasi');
+-                    updateCheckinTable();
+-                }
++                    updateCheckinTable(filterPosko.value);
++                })
++                .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'));
++            });
++        }
++
++        function hapusCheckin(id) {
++            if (!CAN_MANAGE || !confirm('Hapus data check-in warga ini?')) return;
++
++            fetch(`{{ url('/peta-evakuasi/checkin') }}/${id}`, {
++                method: 'DELETE',
++                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
+             })
+-            .catch(err => alert("Terjadi kesalahan koneksi server."));
+-        });
++            .then(handleJson)
++            .then(() => updateCheckinTable(filterPosko.value))
++            .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'));
++        }
+ 
+         // Handling Filter Posko
+         const filterPosko = document.getElementById('filterPosko');
+@@ -415,14 +480,14 @@ className: '',
+ 
+         // Update Tabel Realtime dengan Support Filter
+         function updateCheckinTable(selectedFilter = 'SEMUA') {
+-            fetch(`{{ route("peta-evakuasi.checkins-list") }}?posko_id=${selectedFilter}`)
+-            .then(res => res.json())
++            fetch(`{{ route("peta-evakuasi.checkins-list") }}?posko_id=${encodeURIComponent(selectedFilter)}`, { headers: { 'Accept': 'application/json' } })
++            .then(handleJson)
+             .then(data => {
+                 document.getElementById('labelTotal').innerText = `Total: ${data.length} Warga`;
+                 const tbody = document.getElementById('bodyTabel');
+ 
+                 if(data.length === 0) {
+-                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko ini.</td></tr>`;
++                    tbody.innerHTML = `<tr><td colspan="${CAN_MANAGE ? 8 : 7}" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko ini.</td></tr>`;
+                     return;
+                 }
+ 
+@@ -438,19 +503,21 @@ function updateCheckinTable(selectedFilter = 'SEMUA') {
+                     return `
+                         <tr class="border-b border-slate-100 hover:bg-slate-50">
+                             <td class="px-2 py-2.5 font-medium font-mono text-center align-top">${idx + 1}</td>
+-                            <td class="px-3 py-2.5 font-bold text-slate-800 align-top">${item.nama_lengkap}</td>
++                            <td class="px-3 py-2.5 font-bold text-slate-800 align-top">${esc(item.nama_lengkap)}</td>
+                             <td class="px-3 py-2.5 align-top">
+-                                <span class="font-bold text-blue-600 block">${item.posko_id}</span>
+-                                <span class="text-[10px] text-slate-400 block leading-tight">${item.lokasi_posko}</span>
++                                <span class="font-bold text-blue-600 block">${esc(item.posko_id)}</span>
++                                <span class="text-[10px] text-slate-400 block leading-tight">${esc(item.lokasi_posko)}</span>
+                             </td>
+-                            <td class="px-3 py-2.5 align-top leading-relaxed text-slate-700 min-w-[120px]">${item.asal}</td>
+-                            <td class="px-2 py-2.5 font-mono whitespace-nowrap align-top">${item.usia} Thn</td>
++                            <td class="px-3 py-2.5 align-top leading-relaxed text-slate-700 min-w-[120px]">${esc(item.asal)}</td>
++                            <td class="px-2 py-2.5 font-mono whitespace-nowrap align-top">${esc(item.usia)} Thn</td>
+                             <td class="px-3 py-2.5 whitespace-nowrap align-top">${badge}</td>
+                             <td class="px-3 py-2.5 text-slate-400 font-mono text-[11px] whitespace-nowrap align-top">${time} WIB</td>
++                            ${CAN_MANAGE ? `<td class="px-3 py-2.5 align-top"><button type="button" onclick="hapusCheckin(${Number(item.id)})" class="text-rose-500 hover:text-rose-700 text-[11px] font-bold hover:underline">Hapus</button></td>` : ''}
+                         </tr>
+                     `;
+                 }).join('');
+-            });
++            })
++            .catch(err => console.error(err));
+         }
+     </script>
+ </body>
+diff --git a/routes/web.php b/routes/web.php
+index b1c4045..f644351 100644
+--- a/routes/web.php
++++ b/routes/web.php
+@@ -7,7 +7,7 @@
+ use App\Http\Controllers\EvacuationMapController;
+ use App\Http\Controllers\AuthController;
+ 
+-// --- RUTE PUBLIK ---
++// --- RUTE PUBLIK (Warga / Guest boleh LIHAT saja) ---
+ Route::get('/', [DashboardController::class, 'index']);
+ Route::get('/api/sensor-now', [DashboardController::class, 'getLatestData']);
+ Route::get('/api/sensor-since', [DashboardController::class, 'getSince']);
+@@ -16,21 +16,32 @@
+ Route::get('/api/weather-bmkg', [DashboardController::class, 'getWeather']);
+ Route::post('/api/chatbot', [ChatbotController::class, 'chat']);
+ 
+-// Halaman Lanskap & Peta Evakuasi (Dapat diakses Publik/Guest)
+ Route::get('/lanskap', [LandscapeController::class, 'index'])->name('lanskap.index');
+ Route::get('/peta-evakuasi', [EvacuationMapController::class, 'index'])->name('peta-evakuasi.index');
+-Route::post('/peta-evakuasi/checkin', [EvacuationMapController::class, 'storeCheckin'])->name('peta-evakuasi.checkin');
+ Route::get('/peta-evakuasi/checkins', [EvacuationMapController::class, 'getCheckins'])->name('peta-evakuasi.checkins-list');
+ 
+-// Otentikasi
+-Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login');
+-Route::post('/login', [AuthController::class, 'login']);
+-Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
+-Route::post('/register', [AuthController::class, 'register']);
+-Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
++// --- OTENTIKASI ---
++Route::middleware('guest')->group(function () {
++    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
++    Route::post('/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
++});
++Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+ 
+-// --- RUTE PROTEKSI (Hanya Admin / Kader) ---
+-Route::middleware(['auth'])->group(function () {
++// Pendaftaran akun petugas baru hanya oleh ADMIN (supaya warga tidak bisa
++// mendaftarkan dirinya sendiri sebagai kader/admin).
++Route::middleware(['auth', 'role:admin'])->group(function () {
++    Route::get('/register', [AuthController::class, 'showRegister'])->name('register');
++    Route::post('/register', [AuthController::class, 'register']);
++});
++
++// --- RUTE PROTEKSI (Hanya Admin / Kader yang boleh EDIT) ---
++Route::middleware(['auth', 'role:admin,kader'])->group(function () {
++    // Data Lanskap
+     Route::post('/lanskap', [LandscapeController::class, 'store'])->name('lanskap.store');
++    Route::put('/lanskap/{id}', [LandscapeController::class, 'update'])->name('lanskap.update');
+     Route::delete('/lanskap/{id}', [LandscapeController::class, 'destroy'])->name('lanskap.destroy');
+-});
+\ No newline at end of file
++
++    // Check-in Warga di Posko
++    Route::post('/peta-evakuasi/checkin', [EvacuationMapController::class, 'storeCheckin'])->name('peta-evakuasi.checkin');
++    Route::delete('/peta-evakuasi/checkin/{id}', [EvacuationMapController::class, 'destroyCheckin'])->name('peta-evakuasi.checkin.destroy');
++});
+diff --git a/tests/Feature/DashboardApiTest.php b/tests/Feature/DashboardApiTest.php
+new file mode 100644
+index 0000000..01fec69
+--- /dev/null
++++ b/tests/Feature/DashboardApiTest.php
+@@ -0,0 +1,52 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\AiPrediction;
++use App\Models\SensorLog;
++use App\Models\SensorNode;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Tests\TestCase;
++
++/**
++ * Memastikan dashboard membaca vibration & confidence dari tabel ai_predictions
++ * (kolom tersebut tidak ada di sensor_data pada skema Supabase).
++ */
++class DashboardApiTest extends TestCase
++{
++    use RefreshDatabase;
++
++    protected function setUp(): void
++    {
++        parent::setUp();
++
++        $node = SensorNode::create(['node_code' => 'NODE-01', 'node_name' => 'A', 'latitude' => -7.6, 'longitude' => 112.5]);
++        $log = SensorLog::create([
++            'node_id' => $node->id, 'timestamp' => now(), 'moisture_percent' => 55.5,
++            'pitch' => 1.2, 'roll' => 0.4, 'status' => 'AMAN', 'forecast_status' => null,
++        ]);
++        AiPrediction::create([
++            'sensor_data_id' => $log->id, 'rf_confidence' => 0.91, 'lstm_confidence' => 0.8,
++            'forecast_confidence' => 0.77, 'vibration' => 0.012, 'forecast_status' => 'WASPADA',
++        ]);
++    }
++
++    public function test_latest_sensor_includes_prediction_fields(): void
++    {
++        $this->getJson('/api/sensor-now')->assertOk()->assertJson([
++            'moisture_percent' => 55.5,
++            'rf_confidence' => 0.91,
++            'vibration' => 0.012,
++            'forecast_status' => 'WASPADA',
++        ]);
++    }
++
++    public function test_forecast_and_status_history_work(): void
++    {
++        $this->getJson('/api/forecast-history')->assertOk()
++            ->assertJsonPath('0.forecast_confidence', 0.77)
++            ->assertJsonPath('0.forecast_status', 'WASPADA');
++        $this->getJson('/api/status-history')->assertOk()->assertJsonPath('0.status_ai', 'AMAN');
++        $this->getJson('/api/sensor-since?last_id=0')->assertOk()->assertJsonCount(1);
++    }
++}
+diff --git a/tests/Feature/ExampleTest.php b/tests/Feature/ExampleTest.php
+index 8364a84..dcad498 100644
+--- a/tests/Feature/ExampleTest.php
++++ b/tests/Feature/ExampleTest.php
+@@ -2,18 +2,18 @@
+ 
+ namespace Tests\Feature;
+ 
+-// use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Illuminate\Support\Facades\Http;
+ use Tests\TestCase;
+ 
+ class ExampleTest extends TestCase
+ {
+-    /**
+-     * A basic test example.
+-     */
++    use RefreshDatabase;
++
+     public function test_the_application_returns_a_successful_response(): void
+     {
+-        $response = $this->get('/');
++        Http::fake(); // jangan panggil API BMKG sungguhan saat test
+ 
+-        $response->assertStatus(200);
++        $this->get('/')->assertStatus(200);
+     }
+ }
+diff --git a/tests/Feature/RoleAccessTest.php b/tests/Feature/RoleAccessTest.php
+new file mode 100644
+index 0000000..8835abb
+--- /dev/null
++++ b/tests/Feature/RoleAccessTest.php
+@@ -0,0 +1,188 @@
++<?php
++
++namespace Tests\Feature;
++
++use App\Models\EvacuationCheckin;
++use App\Models\LandscapeAssessment;
++use App\Models\SensorNode;
++use App\Models\User;
++use Illuminate\Foundation\Testing\RefreshDatabase;
++use Tests\TestCase;
++
++class RoleAccessTest extends TestCase
++{
++    use RefreshDatabase;
++
++
++    private array $lanskap = [
++        'location_name' => 'Titik Sensor A',
++        'slope_classification' => 'Curam (25–45%)',
++        'artificial_slope_cutting' => 'ada',
++    ];
++
++    private SensorNode $node;
++
++    protected function setUp(): void
++    {
++        parent::setUp();
++        $this->node = SensorNode::create([
++            'node_code' => 'NODE-01', 'node_name' => 'Lereng Padusan',
++            'latitude' => -7.691, 'longitude' => 112.541,
++        ]);
++        $this->lanskap['node_id'] = $this->node->id;
++    }
++
++    private function makeEntry(string $name = 'Lokasi X'): LandscapeAssessment
++    {
++        return LandscapeAssessment::create([
++            'node_id' => $this->node->id,
++            'user_id' => User::factory()->create()->id,
++            'location_name' => $name,
++        ]);
++    }
++
++    private array $checkin = [
++        'posko_id' => 'Posko Kemiri',
++        'nama_lengkap' => 'Budi',
++        'asal' => 'Padusan RT 02',
++        'usia' => 40,
++        'kondisi' => 'Sehat',
++    ];
++
++    // ---------- Auth ----------
++
++    public function test_login_page_loads(): void
++    {
++        $this->get('/login')->assertOk()->assertSee('Login Kader');
++    }
++
++    public function test_kader_and_admin_can_login(): void
++    {
++        foreach (['kader', 'admin'] as $role) {
++            $user = User::factory()->create(['role' => $role, 'password' => 'secret123']);
++            $this->post('/login', ['email' => $user->email, 'password' => 'secret123'])
++                ->assertRedirect(route('lanskap.index'));
++            $this->assertAuthenticatedAs($user);
++            $this->post('/logout');
++        }
++    }
++
++    public function test_inactive_or_non_staff_cannot_login(): void
++    {
++        $inactive = User::factory()->create(['status' => 'INACTIVE', 'password' => 'secret123']);
++        $this->post('/login', ['email' => $inactive->email, 'password' => 'secret123'])->assertSessionHasErrors('email');
++        $this->assertGuest();
++
++    }
++
++    public function test_wrong_password_fails(): void
++    {
++        $user = User::factory()->create(['password' => 'secret123']);
++        $this->post('/login', ['email' => $user->email, 'password' => 'salah'])->assertSessionHasErrors('email');
++        $this->assertGuest();
++    }
++
++    public function test_only_admin_can_register_staff(): void
++    {
++        $this->get('/register')->assertRedirect(route('login'));
++        $this->actingAs(User::factory()->create())->get('/register')->assertForbidden();
++
++        $admin = User::factory()->admin()->create();
++        $this->actingAs($admin)->get('/register')->assertOk();
++        $this->actingAs($admin)->post('/register', [
++            'name' => 'Kader Baru', 'email' => 'kader@laras.id', 'role' => 'kader',
++            'password' => 'secret123', 'password_confirmation' => 'secret123',
++        ])->assertRedirect(route('register'));
++
++        $this->assertDatabaseHas('users', ['email' => 'kader@laras.id', 'role' => 'kader']);
++        $this->assertAuthenticatedAs($admin);
++    }
++
++    // ---------- Guest / Warga: hanya lihat ----------
++
++    public function test_guest_can_view_but_not_edit(): void
++    {
++        $entry = $this->makeEntry();
++
++        $this->get('/lanskap')->assertOk()
++            ->assertSee('Lokasi X')
++            ->assertSee('Warga (Guest)')
++            ->assertDontSee('Simpan Data Lanskap');
++
++        $this->get('/peta-evakuasi')->assertOk()->assertDontSee('Simpan Check-In Warga');
++        $this->get('/peta-evakuasi/checkins')->assertOk();
++
++        $this->post('/lanskap', $this->lanskap)->assertRedirect(route('login'));
++        $this->put("/lanskap/{$entry->id}", $this->lanskap)->assertRedirect(route('login'));
++        $this->delete("/lanskap/{$entry->id}")->assertRedirect(route('login'));
++        $this->postJson('/peta-evakuasi/checkin', $this->checkin)->assertUnauthorized();
++
++        $this->assertDatabaseCount('landscape_assessments', 1);
++        $this->assertDatabaseCount('evacuation_checkins', 0);
++    }
++
++    public function test_inactive_staff_is_forbidden(): void
++    {
++        $this->actingAs(User::factory()->create(['status' => 'INACTIVE']));
++        $this->post('/lanskap', $this->lanskap)->assertForbidden();
++        $this->postJson('/peta-evakuasi/checkin', $this->checkin)->assertForbidden();
++    }
++
++    // ---------- Admin & Kader: bisa edit ----------
++
++    public function test_staff_can_manage_landscape(): void
++    {
++        foreach (['kader', 'admin'] as $role) {
++            $staff = User::factory()->create(['role' => $role]);
++            $this->actingAs($staff);
++
++            $this->get('/lanskap')->assertOk()->assertSee('Simpan Data Lanskap')->assertSee('NODE-01');
++
++            $this->post('/lanskap', $this->lanskap)->assertRedirect(route('lanskap.index'))->assertSessionHasNoErrors();
++            $entry = LandscapeAssessment::latest('id')->first();
++            $this->assertTrue($entry->artificial_slope_cutting);
++            $this->assertSame($staff->id, $entry->user_id);
++            $this->assertSame($this->node->id, $entry->node_id);
++
++            $this->get("/lanskap?edit={$entry->id}")->assertOk()->assertSee('Simpan Perubahan');
++            $this->put("/lanskap/{$entry->id}", ['node_id' => $this->node->id, 'location_name' => 'Diubah', 'artificial_slope_cutting' => 'tidak_ada'])
++                ->assertRedirect(route('lanskap.index'));
++            $this->assertFalse($entry->fresh()->artificial_slope_cutting);
++            $this->assertSame('Diubah', $entry->fresh()->location_name);
++
++            $this->delete("/lanskap/{$entry->id}")->assertRedirect(route('lanskap.index'));
++            $this->assertModelMissing($entry);
++        }
++    }
++
++    public function test_landscape_rejects_invalid_option(): void
++    {
++        $this->actingAs(User::factory()->create());
++        $this->post('/lanskap', ['node_id' => $this->node->id, 'location_name' => 'A', 'soil_type' => 'ngawur'])->assertSessionHasErrors('soil_type');
++        $this->post('/lanskap', ['node_id' => 99999, 'location_name' => 'A'])->assertSessionHasErrors('node_id');
++    }
++
++    public function test_staff_can_checkin_and_delete(): void
++    {
++        foreach (['kader', 'admin'] as $role) {
++            $this->actingAs(User::factory()->create(['role' => $role]));
++            $this->get('/peta-evakuasi')->assertOk()->assertSee('Simpan Check-In Warga');
++
++            $res = $this->postJson('/peta-evakuasi/checkin', $this->checkin + ['lokasi_posko' => 'dipalsukan'])
++                ->assertOk()->assertJson(['success' => true]);
++
++            $checkin = EvacuationCheckin::find($res->json('data.id'));
++            $this->assertSame('Kawasan Pemukiman Desa Kemiri, Pacet', $checkin->lokasi_posko);
++
++            $this->deleteJson("/peta-evakuasi/checkin/{$checkin->id}")->assertOk();
++            $this->assertModelMissing($checkin);
++        }
++    }
++
++    public function test_checkin_rejects_unknown_posko(): void
++    {
++        $this->actingAs(User::factory()->create());
++        $this->postJson('/peta-evakuasi/checkin', ['posko_id' => 'Posko Palsu'] + $this->checkin)
++            ->assertUnprocessable()->assertJsonValidationErrors('posko_id');
++    }
++}
