@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — LARAS Control Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.theme')
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
         * { font-family: 'Inter', sans-serif; }
@@ -72,9 +73,19 @@
                        class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
             </div>
 
+            <label class="flex items-center gap-2 text-xs text-slate-600">
+                <input type="checkbox" name="remember" value="1" class="accent-blue-600">
+                Ingat saya
+            </label>
+
             <button type="submit" class="w-full mt-2 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl shadow-md transition duration-200">
                 Masuk ke Sistem
             </button>
+
+            <div class="text-center text-xs text-slate-500 pt-3 border-t border-slate-100 space-y-1.5">
+                <p>Belum punya akun? <a href="{{ route('signup') }}" class="text-blue-600 font-bold hover:underline">Daftar sebagai kader</a></p>
+                <p class="text-slate-400">Akun baru aktif setelah disetujui Admin. Warga tidak perlu login untuk melihat informasi.</p>
+            </div>
         </form>
 
     </div>
@@ -82,12 +93,6 @@
     <footer class="text-center py-6 text-xs text-slate-400 font-mono">
         LARAS Early Warning System &copy; 2026
     </footer>
-
-    <div class="text-center pt-4 border-t border-slate-100 mt-4">
-        <p class="text-xs text-slate-500">Belum punya akun petugas? 
-            <a href="{{ route('register') }}" class="text-blue-600 font-bold hover:underline">Buat akun baru →</a>
-        </p>
-    </div>
 
 </body>
 </html>

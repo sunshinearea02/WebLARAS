@@ -3,12 +3,15 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class LandscapeAssessment extends Model
 {
     protected $table = 'landscape_assessments';
 
     protected $fillable = [
+        'node_id',
+        'user_id',
         'location_name',
         'field_notes',
         'dominant_vegetation',
@@ -25,6 +28,16 @@ class LandscapeAssessment extends Model
     protected $casts = [
         'artificial_slope_cutting' => 'boolean',
     ];
+
+    public function node(): BelongsTo
+    {
+        return $this->belongsTo(SensorNode::class, 'node_id');
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
 
     public static function options(): array
     {

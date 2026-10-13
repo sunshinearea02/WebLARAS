@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>LARAS Control Center — Landslide Alert and Rescue Adaptive System</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.theme')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
@@ -36,12 +38,12 @@
         #dashboard-page { transition: opacity 0.4s ease, transform 0.4s ease; display: none; }
 
         .status-aman { background: #f0fdf4; border-color: #22c55e; }
-        .status-waspada { background: #fefce8; border-color: #eab308; }
+        .status-waspada { background: #fff9ed; border-color: #FAB44B; }
         .status-bahaya { background: #fff1f2; border-color: #f43f5e; }
         .status-unknown { background: #f8fafc; border-color: #94a3b8; }
 
         .bar-aman { width: var(--bar-w); background: #22c55e; }
-        .bar-waspada { width: var(--bar-w); background: #eab308; }
+        .bar-waspada { width: var(--bar-w); background: #FAB44B; }
         .bar-bahaya { width: var(--bar-w); background: #f43f5e; }
 
         .stat-card { transition: transform 0.2s ease, box-shadow 0.2s ease; }
@@ -65,7 +67,9 @@
         const phpWeather = @json($weatherInfo ?? 'N/A');
     </script>
 </head>
-<body class="bg-slate-50 antialiased text-slate-800 selection:bg-blue-200">
+<body class="bg-slate-50 antialiased text-slate-800 selection:bg-blue-200 overflow-x-hidden">
+
+    @include('partials.navbar', ['active' => 'home'])
 
 
 <div id="landing-page">
@@ -74,50 +78,6 @@
     <div class="fixed top-20 right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-200/40 blur-3xl -z-10 pointer-events-none"></div>
     <div class="fixed top-[40%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-100/50 blur-3xl -z-10 pointer-events-none"></div>
 
-        <nav id="landingNav" class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200">
-        <!-- Sisi Kiri: Logo & Judul -->
-        <div class="flex items-center space-x-3">
-            <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-10 h-10 rounded-xl object-cover shadow-md">
-            <div>
-                <h1 class="text-xl font-bold tracking-tight text-slate-900 leading-none">LARAS</h1>
-                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-0.5">Landslide Alert &amp; Rescue System</p>
-            </div>
-        </div>
-
-        <!-- Sisi Kanan: Menu Navigasi + Tombol Live Control + Status Auth -->
-        <div class="flex items-center space-x-4">
-            <a href="#features" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Fitur</a>
-            <a href="#algorithms" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Algoritma</a>
-            <a href="#edukasi" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Edukasi</a>
-            <a href="#kontak-darurat" class="text-sm font-medium text-rose-600 hover:text-rose-700 transition-colors hidden lg:inline">Kontak Darurat</a>
-            <a href="#developers" class="text-sm font-medium text-slate-600 hover:text-blue-600 transition-colors hidden lg:inline">Developer</a>
-            
-            <button onclick="enterDashboard()" class="group px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-xl shadow-md transition-all flex items-center space-x-1.5">
-                <span>Live Control Center</span>
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="group-hover:translate-x-1 transition-transform"><path d="M9 18l6-6-6-6"/></svg>
-            </button>
-
-            <!-- Status Auth Login / Logout -->
-            @auth
-                <div class="text-right hidden sm:block border-l pl-3 border-slate-200">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">{{ Auth::user()->name }}</p>
-                    <p class="text-[9px] uppercase font-mono text-blue-600 font-semibold leading-tight">{{ Auth::user()->role }}</p>
-                </div>
-                
-                <form action="{{ route('logout') }}" method="POST" class="inline">
-                    @csrf
-                    <button type="submit" class="px-3 py-2 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl border border-rose-200 transition">
-                        Logout
-                    </button>
-                </form>
-            @else
-                <a href="{{ route('login') }}" class="px-4 py-2 text-xs font-semibold bg-slate-900 text-white hover:bg-slate-800 rounded-xl shadow-sm transition flex items-center gap-1.5">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                    Login Kader / Admin
-                </a>
-            @endauth
-        </div>
-    </nav>
 
     <div class="max-w-7xl mx-auto px-6 pb-24">
 
@@ -166,12 +126,12 @@
             <div class="lg:col-span-5 animate-fade-up-delay-1">
                 <div class="relative flex justify-center items-center mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" class="w-56 md:w-64 h-auto float-hero" style="animation: float-hero 5s ease-in-out infinite;">
-                        <path d="M0 170 L90 60 L150 120 L200 40 L280 170 Z" fill="#e0e7ff"/>
-                        <path d="M0 170 L90 60 L150 120 L200 40 L280 170 Z" fill="none" stroke="#6366f1" stroke-width="2" stroke-linejoin="round"/>
-                        <circle cx="90" cy="60" r="6" fill="#2563eb"/>
-                        <circle cx="90" cy="60" r="12" fill="none" stroke="#2563eb" stroke-width="2" opacity="0.5"/>
-                        <circle cx="200" cy="40" r="6" fill="#059669"/>
-                        <circle cx="200" cy="40" r="12" fill="none" stroke="#059669" stroke-width="2" opacity="0.5"/>
+                        <path d="M0 170 L90 60 L150 120 L200 40 L280 170 Z" fill="#e4eaf0"/>
+                        <path d="M0 170 L90 60 L150 120 L200 40 L280 170 Z" fill="none" stroke="#4E6A83" stroke-width="2" stroke-linejoin="round"/>
+                        <circle cx="90" cy="60" r="6" fill="#4E6A83"/>
+                        <circle cx="90" cy="60" r="12" fill="none" stroke="#4E6A83" stroke-width="2" opacity="0.5"/>
+                        <circle cx="200" cy="40" r="6" fill="#FAB44B"/>
+                        <circle cx="200" cy="40" r="12" fill="none" stroke="#FAB44B" stroke-width="2" opacity="0.5"/>
                         <line x1="90" y1="60" x2="200" y2="40" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
                         <rect x="20" y="176" width="240" height="6" rx="3" fill="#cbd5e1"/>
                     </svg>
@@ -262,21 +222,21 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                 <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                     <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4E6A83" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
                     </div>
                     <h3 class="font-bold text-slate-900 mb-2">Sensor IoT Multi-Kedalaman</h3>
                     <p class="text-sm text-slate-500 leading-relaxed">Kelembapan tanah 2 kedalaman (dangkal &amp; dalam), MPU6050 dengan filter komplementer untuk pitch/roll, dan rain gauge tipping bucket.</p>
                 </div>
                 <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
                     <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4C3625" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
                     </div>
                     <h3 class="font-bold text-slate-900 mb-2">AI Triase 3 Lapis</h3>
                     <p class="text-sm text-slate-500 leading-relaxed">LSTM-Ensemble Forecasting + verifikasi silang Random Forest + ambang batas fisik intensitas-durasi hujan sebagai jaring pengaman.</p>
                 </div>
                 <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#059669" stroke-width="2"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="12" r="2.2"/><path d="M8 16.5L10.5 13.5M13.5 10.5L16 7.5"/></svg>
+                    <div class="w-12 h-12 bg-sun-50 rounded-xl flex items-center justify-center mb-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FAB44B" stroke-width="2"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="12" r="2.2"/><path d="M8 16.5L10.5 13.5M13.5 10.5L16 7.5"/></svg>
                     </div>
                     <h3 class="font-bold text-slate-900 mb-2">Komunikasi Tanpa Seluler</h3>
                     <p class="text-sm text-slate-500 leading-relaxed">LoRa mesh ke gateway, dirancang untuk wilayah rawan longsor yang akses selulernya sering terputus.</p>
@@ -315,7 +275,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-7 text-white shadow-xl shadow-emerald-200">
+                <div class="bg-gradient-to-br from-olive-600 to-olive-800 rounded-2xl p-7 text-white shadow-xl shadow-olive-200">
                     <div class="flex items-center gap-3 mb-4 flex-wrap">
                         <span class="text-xs font-bold uppercase tracking-widest text-emerald-200 font-mono bg-white/10 px-2 py-1 rounded-md">Layer 2</span>
                         <h3 class="text-lg font-black">Verifikasi Silang Random Forest</h3>
@@ -332,7 +292,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="bg-gradient-to-br from-amber-600 to-orange-700 rounded-2xl p-7 text-white shadow-xl shadow-amber-200">
+                <div class="bg-gradient-to-br from-sun-600 to-sun-800 rounded-2xl p-7 text-white shadow-xl shadow-sun-200">
                     <div class="flex items-center gap-3 mb-4 flex-wrap">
                         <span class="text-xs font-bold uppercase tracking-widest text-amber-200 font-mono bg-white/10 px-2 py-1 rounded-md">Layer 3</span>
                         <h3 class="text-lg font-black">Ambang Fisik Curah Hujan</h3>
@@ -451,7 +411,7 @@
                         'role' => 'Machine Learning & AI Engineer',
         
                         'letter' => 'D',
-                        'gradient' => 'from-rose-400 to-pink-600'
+                        'gradient' => 'from-noir-400 to-noir-700'
                     ],
                     [
                         'name' => 'Athaya Khairani Adi',
@@ -459,7 +419,7 @@
                         'role' => 'Web Developer & Software Engineer',
                         
                         'letter' => 'A',
-                        'gradient' => 'from-emerald-400 to-teal-600'
+                        'gradient' => 'from-olive-500 to-olive-700'
                     ],
                      [
                         'name' => 'Atika Najwa Azzahra',
@@ -635,83 +595,6 @@
 
 <div id="dashboard-page" style="display:none;">
 
-        <nav class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 gap-3">
-        
-        <!-- Sisi Kiri: Kembali + Logo + Title -->
-        <div class="flex items-center gap-3 shrink-0">
-            <a href="/" class="flex items-center gap-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition border border-slate-200">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                Kembali
-            </a>
-
-            <div class="h-6 w-[1px] bg-slate-200"></div>
-
-            <div class="flex items-center gap-2.5">
-                <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm" onerror="this.src='https://via.placeholder.com/32'">
-                <div>
-                    <h1 class="text-base font-extrabold tracking-tight text-slate-900 leading-none">LARAS</h1>
-                    <p class="text-[9px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">CONTROL CENTER</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Sisi Kanan: Menu Navigasi + Auth Status -->
-        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            <!-- Tombol Edukasi (Publik) -->
-            <a href="/edukasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                Edukasi
-            </a>
-
-            <!-- Tombol Data Lanskap (HANYA MUNCUL JIKA USER SUDAH LOGIN) -->
-            @auth
-            <a href="/lanskap" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                Data Lanskap
-            </a>
-            @endauth
-
-            <!-- Tombol Peta Evakuasi (Publik) -->
-            <a href="/peta-evakuasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                Peta Evakuasi
-            </a>
-
-            <!-- Tombol Kontak Darurat (Publik) -->
-            <a href="tel:112" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.79 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                Kontak Darurat (112)
-            </a>
-
-            <!-- Badge Sync Active -->
-            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl shrink-0 font-mono">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                SYNC ACTIVE
-            </div>
-
-            <div class="h-6 w-[1px] bg-slate-200 mx-1"></div>
-
-            <!-- Tombol Auth Login / Logout -->
-            @auth
-                <div class="text-right hidden sm:block shrink-0">
-                    <p class="text-xs font-bold text-slate-800 leading-tight">{{ Auth::user()->name }}</p>
-                    <p class="text-[9px] uppercase font-mono text-blue-600 font-semibold leading-tight">{{ Auth::user()->role }}</p>
-                </div>
-                
-                <form action="{{ route('logout') }}" method="POST" class="inline shrink-0">
-                    @csrf
-                    <button type="submit" class="px-3 py-1.5 text-xs font-semibold bg-rose-50 text-rose-600 hover:bg-rose-100 rounded-xl border border-rose-200 transition">
-                        Logout
-                    </button>
-                </form>
-            @else
-                <a href="{{ route('login') }}" class="px-3 py-1.5 text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 rounded-xl shadow-sm transition flex items-center gap-1.5 shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
-                    Login
-                </a>
-            @endauth
-        </div>
-    </nav>
 
     <main class="container mx-auto p-4 md:p-6 max-w-7xl">
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
@@ -939,7 +822,7 @@
                 <div class="flex items-center gap-3 pt-2">
                     <div class="flex-1 h-px bg-gradient-to-r from-purple-200 to-transparent"></div>
                     <div class="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 px-4 py-2 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4C3625" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                         <span class="text-xs font-bold text-purple-700 uppercase tracking-widest">Predictive Analytics</span>
                     </div>
                     <div class="flex-1 h-px bg-gradient-to-l from-purple-200 to-transparent"></div>
@@ -1172,6 +1055,8 @@ Chart.defaults.color = '#64748b';
 const PAGE = 10;
 
 function enterDashboard() {
+    // simpan #live di URL supaya refresh / link dari halaman lain langsung ke Live Control
+    if (location.hash !== '#live') history.replaceState(null, '', '#live');
     const lp = document.getElementById('landing-page');
     const dp = document.getElementById('dashboard-page');
     lp.style.opacity = '0';
@@ -1192,6 +1077,7 @@ function enterDashboard() {
 }
 
 function backToLanding() {
+    if (location.hash === '#live') history.replaceState(null, '', location.pathname);
     const lp = document.getElementById('landing-page');
     const dp = document.getElementById('dashboard-page');
     dp.style.opacity = '0';
@@ -1242,7 +1128,7 @@ function statusToNumber(s) {
 function getStatusColor(s) {
     const su = (s || '').toUpperCase();
     if (su === 'AMAN') return { bg: 'rgba(34,197,94,0.25)', border: '#22c55e' };
-    if (su === 'WASPADA') return { bg: 'rgba(234,179,8,0.25)', border: '#eab308' };
+    if (su === 'WASPADA') return { bg: 'rgba(250,180,75,0.25)', border: '#FAB44B' };
     if (su === 'BAHAYA') return { bg: 'rgba(244,63,94,0.25)', border: '#f43f5e' };
     return { bg: 'rgba(148,163,184,0.2)', border: '#94a3b8' };
 }
@@ -1259,8 +1145,8 @@ function renderMoistureSlide() {
             datasets: [{
                 label: 'Moisture %',
                 data: slice.map(d => d.soil_moisture),
-                borderColor: '#3b82f6',
-                backgroundColor: 'rgba(59,130,246,0.08)',
+                borderColor: '#4E6A83',
+                backgroundColor: 'rgba(78,106,131,0.08)',
                 fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2
             }]
         },
@@ -1286,8 +1172,8 @@ function renderMoistureDeepSlide() {
             datasets: [{
                 label: 'Moisture Dalam %',
                 data: slice.map(d => d.moisture_percent_deep),
-                borderColor: '#10b981',
-                backgroundColor: 'rgba(16,185,129,0.08)',
+                borderColor: '#494822',
+                backgroundColor: 'rgba(73,72,34,0.08)',
                 fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2
             }]
         },
@@ -1312,9 +1198,9 @@ function renderAccelSlide() {
         data: {
             labels: slice.map(d => fmtLabel(d.timestamp)),
             datasets: [
-                { label: 'X', data: slice.map(d => d.accel_x), borderColor: '#ef4444', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
-                { label: 'Y', data: slice.map(d => d.accel_y), borderColor: '#f59e0b', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
-                { label: 'Z', data: slice.map(d => d.accel_z), borderColor: '#10b981', tension: 0.4, pointRadius: 2, borderWidth: 1.5 }
+                { label: 'X', data: slice.map(d => d.accel_x), borderColor: '#4E6A83', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
+                { label: 'Y', data: slice.map(d => d.accel_y), borderColor: '#E3922A', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
+                { label: 'Z', data: slice.map(d => d.accel_z), borderColor: '#4C3625', tension: 0.4, pointRadius: 2, borderWidth: 1.5 }
             ]
         },
         options: {
@@ -1575,8 +1461,8 @@ function statusToNumForecast(s) {
 
 function forecastStatusColor(s) {
     const su = (s || '').toUpperCase();
-    if (su === 'AMAN')    return { bg: 'rgba(124,58,237,0.5)',  border: '#7c3aed' };
-    if (su === 'WASPADA') return { bg: 'rgba(167,139,250,0.5)', border: '#a78bfa' };
+    if (su === 'AMAN')    return { bg: 'rgba(73,72,34,0.45)',  border: '#494822' };
+    if (su === 'WASPADA') return { bg: 'rgba(250,180,75,0.55)', border: '#FAB44B' };
     if (su === 'BAHAYA')  return { bg: 'rgba(239,68,68,0.6)',   border: '#ef4444' };
     return { bg: 'rgba(148,163,184,0.3)', border: '#94a3b8' };
 }
@@ -1674,10 +1560,10 @@ function renderForecastStatusChart(data) {
             },
             scales: {
                 y: {
-                    min: 0, max: 3.5, grid: { color: '#f3f0ff' },
-                    ticks: { stepSize: 1, callback: v => { if(v==1) return 'AMAN'; if(v==2) return 'WASPADA'; if(v==3) return 'BAHAYA'; return ''; }, color: '#7c3aed' }
+                    min: 0, max: 3.5, grid: { color: '#eef1f3' },
+                    ticks: { stepSize: 1, callback: v => { if(v==1) return 'AMAN'; if(v==2) return 'WASPADA'; if(v==3) return 'BAHAYA'; return ''; }, color: '#4C3625' }
                 },
-                x: { grid: { color: '#f3f0ff' } }
+                x: { grid: { color: '#eef1f3' } }
             }
         }
     });
@@ -1699,8 +1585,8 @@ function renderConfidenceChart(data) {
                 {
                     label: 'RF Confidence',
                     data: slice.map(d => d.rf_confidence != null ? parseFloat(d.rf_confidence) : null),
-                    borderColor: '#7c3aed',
-                    backgroundColor: 'rgba(124,58,237,0.08)',
+                    borderColor: '#4C3625',
+                    backgroundColor: 'rgba(76,54,37,0.08)',
                     fill: false, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     spanGaps: true
                 },
@@ -1708,15 +1594,15 @@ function renderConfidenceChart(data) {
                     label: 'LSTM Confidence',
                     data: slice.map(d => d.lstm_confidence != null ? parseFloat(d.lstm_confidence) : null),
                     borderColor: '#06b6d4',
-                    backgroundColor: 'rgba(6,182,212,0.08)',
+                    backgroundColor: 'rgba(169,181,180,0.08)',
                     fill: false, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     spanGaps: true
                 },
                 {
                     label: 'Forecast Confidence',
                     data: slice.map(d => d.forecast_confidence != null ? parseFloat(d.forecast_confidence) : null),
-                    borderColor: '#a78bfa',
-                    backgroundColor: 'rgba(167,139,250,0.08)',
+                    borderColor: '#A9B5B4',
+                    backgroundColor: 'rgba(169,181,180,0.08)',
                     fill: false, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     borderDash: [4, 3],
                     spanGaps: true
@@ -1734,8 +1620,8 @@ function renderConfidenceChart(data) {
                 }
             },
             scales: {
-                y: { min: 0, max: 100, grid: { color: '#f3f0ff' }, ticks: { callback: v => v + '%', color: '#7c3aed' } },
-                x: { grid: { color: '#f3f0ff' } }
+                y: { min: 0, max: 100, grid: { color: '#eef1f3' }, ticks: { callback: v => v + '%', color: '#4C3625' } },
+                x: { grid: { color: '#eef1f3' } }
             }
         }
     });
@@ -1769,16 +1655,16 @@ function renderForecastMoistureChart(data) {
                 {
                     label: 'Moisture Aktual (%)',
                     data: histDataset,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59,130,246,0.08)',
+                    borderColor: '#4E6A83',
+                    backgroundColor: 'rgba(78,106,131,0.08)',
                     fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     spanGaps: false
                 },
                 {
                     label: 'Proyeksi +' + forecastInterval + 'min',
                     data: projDataset,
-                    borderColor: '#a78bfa',
-                    backgroundColor: 'rgba(167,139,250,0.12)',
+                    borderColor: '#A9B5B4',
+                    backgroundColor: 'rgba(169,181,180,0.12)',
                     fill: true, tension: 0.4, pointRadius: 4, borderWidth: 2,
                     borderDash: [5, 4],
                     pointStyle: 'triangle',
@@ -1793,8 +1679,8 @@ function renderForecastMoistureChart(data) {
                 annotation: {}
             },
             scales: {
-                y: { min: 0, max: 100, grid: { color: '#f3f0ff' }, ticks: { callback: v => v + '%', color: '#7c3aed' } },
-                x: { grid: { color: '#f3f0ff' } }
+                y: { min: 0, max: 100, grid: { color: '#eef1f3' }, ticks: { callback: v => v + '%', color: '#4C3625' } },
+                x: { grid: { color: '#eef1f3' } }
             }
         }
     });
@@ -1871,9 +1757,20 @@ function loadForecastData() {
 }
 
 
-</script>
 
-<meta name="csrf-token" content="{{ csrf_token() }}">
+// Buka Live Control Center langsung jika URL berakhiran #live (mis. dari navbar halaman lain)
+if (location.hash === '#live') enterDashboard();
+window.addEventListener('hashchange', () => {
+    const liveVisible = document.getElementById('dashboard-page').style.display !== 'none';
+    if (location.hash === '#live') {
+        if (!liveVisible) enterDashboard();
+    } else if (liveVisible) {
+        // link menu seperti /#edukasi saat sedang di Live Control
+        const target = location.hash.slice(1);
+        target ? goToLandingSection(target) : backToLanding();
+    }
+});
+</script>
 
 </body>
 </html>

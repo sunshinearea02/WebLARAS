@@ -2,38 +2,81 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\LandscapeAssessment;
+use App\Models\SensorNode;
 use Illuminate\Http\Request;
-use App\Models\Landscape;
+use Illuminate\Validation\Rule;
 
 class LandscapeController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil data lanskap dari database
-        $entries = Landscape::latest()->get();
+        // Data lanskap bisa DILIHAT semua orang (termasuk warga/guest)
+        $entries = LandscapeAssessment::with(['node', 'user'])->latest()->get();
+        $options = LandscapeAssessment::options();
+        $nodes = SensorNode::orderBy('node_code')->get();
 
-        // WAJIB MENGGUNAKAN view('lanskap') AGAR BLADE ENGINE BERJALAN
-        return view('lanskap', compact('entries'));
+        // Mode edit hanya untuk admin/kader
+        $editing = null;
+        if ($request->filled('edit') && $request->user()?->can('kelola-data')) {
+            $editing = LandscapeAssessment::find($request->integer('edit'));
+        }
+
+        return view('lanskap', compact('entries', 'options', 'editing', 'nodes'));
     }
 
     public function store(Request $request)
     {
-        // Validasi dan simpan data (khusus admin/kader)
-        $request->validate([
-            'location_name' => 'required|string|max:255',
+        LandscapeAssessment::create($this->validated($request) + [
+            'user_id' => $request->user()->id, // pengisi data tercatat otomatis
         ]);
-
-        Landscape::create($request->all());
 
         return redirect()->route('lanskap.index')->with('success', 'Data lanskap berhasil ditambahkan!');
     }
 
+    public function update(Request $request, $id)
+    {
+        $entry = LandscapeAssessment::findOrFail($id);
+        $entry->update($this->validated($request) + [
+            'user_id' => $request->user()->id, // petugas terakhir yang mengubah
+        ]);
+
+        return redirect()->route('lanskap.index')->with('success', 'Data lanskap berhasil diperbarui!');
+    }
+
     public function destroy($id)
     {
-        // Hapus data (khusus admin/kader)
-        $entry = Landscape::findOrFail($id);
-        $entry->delete();
+        LandscapeAssessment::findOrFail($id)->delete();
 
         return redirect()->route('lanskap.index')->with('success', 'Data lanskap berhasil dihapus!');
+    }
+
+    /**
+     * Validasi input form lanskap dan ubah radio "ada / tidak_ada" menjadi boolean.
+     */
+    private function validated(Request $request): array
+    {
+        $options = LandscapeAssessment::options();
+
+        $rules = [
+            'node_id' => ['required', 'integer', 'exists:sensor_nodes,id'],
+            'location_name' => ['required', 'string', 'max:255'],
+            'field_notes' => ['nullable', 'string', 'max:5000'],
+            'artificial_slope_cutting' => ['nullable', Rule::in(['ada', 'tidak_ada'])],
+        ];
+
+        foreach ($options as $field => $choices) {
+            $rules[$field] = ['nullable', Rule::in($choices)];
+        }
+
+        $data = $request->validate($rules);
+
+        $data['artificial_slope_cutting'] = match ($data['artificial_slope_cutting'] ?? null) {
+            'ada' => true,
+            'tidak_ada' => false,
+            default => null,
+        };
+
+        return $data;
     }
 }

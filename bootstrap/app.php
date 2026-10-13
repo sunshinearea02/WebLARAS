@@ -16,6 +16,11 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => CheckRole::class,
         ]);
+
+        // Guest yang membuka halaman khusus petugas diarahkan ke login,
+        // petugas yang sudah login dan membuka /login diarahkan ke Data Lanskap.
+        $middleware->redirectGuestsTo(fn () => route('login'));
+        $middleware->redirectUsersTo('/');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

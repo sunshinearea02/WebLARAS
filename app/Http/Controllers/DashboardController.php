@@ -51,7 +51,10 @@ class DashboardController extends Controller
             $data     = $current->toArray();
             $sent     = $telegram->sendIfChanged($status, $data);
 
-            TelegramAlertLog::create([
+            // null = tidak dikirim karena masih cooldown / status sama.
+            // Hanya catat log saat benar-benar ada percobaan kirim, supaya tabel
+            // telegram_alert_logs tidak bertambah di setiap polling browser.
+            if ($sent !== null) TelegramAlertLog::create([
                 'status'           => $status,
                 'sensor_log_id'    => $current->id,
                 'moisture_percent' => $current->moisture_percent,
@@ -84,7 +87,8 @@ class DashboardController extends Controller
 
     public function getStatusHistory()
     {
-        $history = SensorLog::orderBy('timestamp', 'asc')
+        $history = SensorLog::without('prediction')
+            ->orderBy('timestamp', 'asc')
             ->get(['id', 'timestamp', 'status'])
             ->map(function ($log) {
                 return [
@@ -99,7 +103,8 @@ class DashboardController extends Controller
     public function getForecastHistory()
     {
         $history = SensorLog::orderBy('timestamp', 'asc')
-            ->get(['id', 'timestamp', 'status', 'forecast_status', 'forecast_confidence', 'rf_confidence', 'lstm_confidence', 'moisture_percent', 'vibration', 'pitch'])
+            // vibration & confidence diambil dari relasi ai_predictions (lihat model SensorLog)
+            ->get(['id', 'timestamp', 'status', 'forecast_status', 'moisture_percent', 'pitch'])
             ->map(function ($log) {
                 return [
                     'timestamp'           => $log->timestamp,

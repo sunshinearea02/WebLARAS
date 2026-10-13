@@ -8,6 +8,7 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    @include('partials.theme')
     
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -28,52 +29,7 @@
 </head>
 <body class="bg-slate-50 min-h-screen pb-12">
 
-    <!-- Header Navbar -->
-    <nav class="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200 gap-3">
-        <div class="flex items-center gap-3 shrink-0">
-            <a href="/" class="flex items-center gap-1 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs rounded-xl transition border border-slate-200">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-                Kembali
-            </a>
-
-            <div class="h-6 w-[1px] bg-slate-200"></div>
-
-            <div class="flex items-center gap-2.5">
-                <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-8 h-8 rounded-lg object-cover shadow-sm" onerror="this.src='https://via.placeholder.com/32'">
-                <div>
-                    <h1 class="text-base font-extrabold tracking-tight text-slate-900 leading-none">LARAS</h1>
-                    <p class="text-[9px] uppercase tracking-widest text-slate-400 font-bold mt-0.5">CONTROL CENTER</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1">
-            <a href="/#edukasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-300 text-emerald-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-                Edukasi
-            </a>
-
-            <a href="/lanskap" class="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>
-                Data Lanskap
-            </a>
-
-            <a href="/peta-evakuasi" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
-                Peta Evakuasi
-            </a>
-
-            <a href="tel:112" class="flex items-center gap-1.5 px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 font-bold text-xs rounded-xl transition shrink-0">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.79 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-                Kontak Darurat (112)
-            </a>
-
-            <div class="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 border border-emerald-200 text-emerald-700 font-bold text-[11px] rounded-xl shrink-0 font-mono">
-                <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                SYNC ACTIVE
-            </div>
-        </div>
-    </nav>
+    @include('partials.navbar', ['active' => 'peta'])
 
     <div class="max-w-7xl mx-auto px-6 py-6 space-y-6">
 
@@ -105,28 +61,83 @@
         <!-- Map Container -->
         <div id="map" class="shadow-sm border border-slate-200"></div>
 
+        @php $canManage = auth()->user()?->can('kelola-data') ?? false; @endphp
+
+        @if(session('success'))
+        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-4 py-3 rounded-xl">{{ session('success') }}</div>
+        @endif
+        @if($errors->any())
+        <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-4 py-3 rounded-xl">
+            <p class="font-bold mb-1">Data node belum tersimpan:</p>
+            <ul class="list-disc list-inside">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        </div>
+        @endif
+
         <!-- Detail Node Cards -->
+        <div class="flex items-center justify-between gap-3">
+            <div>
+                <h3 class="font-bold text-slate-900 text-sm">Node Sensor</h3>
+                <p class="text-[11px] text-slate-400">Status risiko, baterai, dan lokasi tiap node</p>
+            </div>
+            @if($canManage)
+            <button type="button" onclick="openNodeForm(null)" class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Tambah Node
+            </button>
+            @endif
+        </div>
+
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             @forelse($nodes as $node)
             @php
                 $statusColor = match(strtoupper($node->status)) {
                     'BAHAYA' => ['bg-rose-50', 'border-rose-200', 'text-rose-700', 'bg-rose-500'],
                     'WASPADA' => ['bg-amber-50', 'border-amber-200', 'text-amber-700', 'bg-amber-500'],
-                    default => ['bg-emerald-50', 'border-emerald-200', 'text-emerald-700', 'bg-emerald-500'],
+                    'AMAN' => ['bg-emerald-50', 'border-emerald-200', 'text-emerald-700', 'bg-emerald-500'],
+                    default => ['bg-slate-50', 'border-slate-200', 'text-slate-500', 'bg-slate-400'],
                 };
+                $statusLabel = strtoupper($node->status) === 'UNKNOWN' ? 'BELUM ADA DATA' : strtoupper($node->status);
+                $bat = $node->battery;
+                $batColor = $bat === null ? 'bg-slate-300' : ($bat >= 50 ? 'bg-emerald-500' : ($bat >= 20 ? 'bg-amber-500' : 'bg-rose-500'));
+                $batText  = $bat === null ? 'text-slate-400' : ($bat >= 50 ? 'text-emerald-700' : ($bat >= 20 ? 'text-amber-700' : 'text-rose-700'));
             @endphp
-            <div class="bg-white rounded-2xl border {{ $statusColor[1] }} shadow-sm p-4 hover:shadow-md transition">
+            <div class="bg-white rounded-2xl border {{ $statusColor[1] }} shadow-sm p-4 hover:shadow-md transition flex flex-col">
                 <div class="flex items-center justify-between mb-2">
                     <h4 class="font-bold text-slate-900 text-sm">{{ $node->node_name }}</h4>
                     <span class="flex items-center gap-1.5 text-[10px] font-bold {{ $statusColor[2] }} {{ $statusColor[0] }} px-2 py-0.5 rounded-full">
                         <span class="w-1.5 h-1.5 rounded-full {{ $statusColor[3] }}"></span>
-                        {{ strtoupper($node->status) }}
+                        {{ $statusLabel }}
                     </span>
                 </div>
-                <p class="text-[11px] text-slate-400 font-mono">{{ $node->desa ?? '-' }} · {{ number_format($node->lat, 5) }}, {{ number_format($node->lng, 5) }}</p>
-                @if(isset($node->notes) && $node->notes)
+                <p class="text-[11px] text-slate-400 font-mono">{{ $node->desa ?: '-' }} · {{ number_format($node->lat, 5) }}, {{ number_format($node->lng, 5) }}</p>
+                @if($node->notes)
                 <p class="text-xs text-slate-500 mt-2 leading-relaxed">{{ $node->notes }}</p>
                 @endif
+
+                <!-- Power monitoring -->
+                <div class="mt-3 pt-3 border-t border-slate-100 flex items-center gap-3">
+                    <div class="flex items-center gap-1" title="Baterai">
+                        <div class="relative w-9 h-[18px] rounded-[4px] border-2 border-slate-400 p-[2px]">
+                            <div class="h-full rounded-[2px] {{ $batColor }}" style="width: {{ $bat === null ? 0 : max(4, min(100, $bat)) }}%"></div>
+                        </div>
+                        <div class="w-[3px] h-2 rounded-r-sm bg-slate-400"></div>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        @if($bat !== null)
+                            <p class="text-sm font-bold font-mono {{ $batText }} leading-tight">{{ $bat }}%@if($node->voltage) <span class="text-[11px] font-medium text-slate-400">· {{ number_format($node->voltage, 2) }} V</span>@endif</p>
+                            <p class="text-[10px] text-slate-400">Update {{ $node->battery_at }}@if($bat < 20) · <span class="font-bold text-rose-600">segera isi daya</span>@endif</p>
+                        @else
+                            <p class="text-xs font-semibold text-slate-400 leading-tight">Belum ada data baterai</p>
+                            <p class="text-[10px] text-slate-400">Menunggu kiriman dari node</p>
+                        @endif
+                    </div>
+                    @if($canManage)
+                    <button type="button" onclick='openNodeForm(@json($node))' class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-bold text-slate-600 hover:bg-slate-50 transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-6 8-12a8 8 0 1 0-16 0c0 6 8 12 8 12z"/><circle cx="12" cy="10" r="3"/></svg>
+                        Edit lokasi
+                    </button>
+                    @endif
+                </div>
             </div>
             @empty
             <div class="col-span-full bg-white rounded-2xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-400">
@@ -135,10 +146,74 @@
             @endforelse
         </div>
 
+        @if($canManage)
+        <!-- Modal form koordinat node (hanya Admin & Kader) -->
+        <div id="nodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/40 px-4" role="dialog" aria-modal="true" aria-labelledby="nodeModalTitle">
+            <form id="nodeForm" method="POST" action="{{ route('nodes.store') }}" class="w-full max-w-md bg-white rounded-2xl shadow-xl p-6 space-y-4">
+                @csrf
+                <input type="hidden" name="_method" id="nodeMethod" value="POST">
+                <div class="flex items-center justify-between">
+                    <h3 id="nodeModalTitle" class="font-bold text-slate-900">Tambah Node</h3>
+                    <button type="button" onclick="closeNodeForm()" aria-label="Tutup" class="w-8 h-8 inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label for="nf_code" class="block text-xs font-bold text-slate-500 uppercase mb-1">Kode Node</label>
+                        <input id="nf_code" name="node_code" required maxlength="50" placeholder="Node-07" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="nf_desa" class="block text-xs font-bold text-slate-500 uppercase mb-1">Desa</label>
+                        <input id="nf_desa" name="desa" maxlength="100" placeholder="Padusan" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="nf_lat" class="block text-xs font-bold text-slate-500 uppercase mb-1">Latitude</label>
+                        <input id="nf_lat" name="latitude" type="number" step="0.000001" min="-90" max="90" required placeholder="-7.691000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                    <div>
+                        <label for="nf_lng" class="block text-xs font-bold text-slate-500 uppercase mb-1">Longitude</label>
+                        <input id="nf_lng" name="longitude" type="number" step="0.000001" min="-180" max="180" required placeholder="112.541000" class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm font-mono focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    </div>
+                </div>
+
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" id="btnGps" onclick="useMyGps()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 text-xs font-bold transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                        Ambil dari GPS HP
+                    </button>
+                    <button type="button" onclick="pickOnMap()" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/></svg>
+                        Pilih di peta
+                    </button>
+                </div>
+                <p id="gpsInfo" class="text-[11px] text-slate-400 -mt-2">Berdirilah di dekat node saat mengambil GPS agar koordinatnya akurat.</p>
+
+                <div>
+                    <label for="nf_notes" class="block text-xs font-bold text-slate-500 uppercase mb-1">Keterangan</label>
+                    <textarea id="nf_notes" name="notes" rows="2" maxlength="500" placeholder="Kondisi sekitar node..." class="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"></textarea>
+                </div>
+
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeNodeForm()" class="px-4 py-2 rounded-lg text-xs font-bold text-slate-600 hover:bg-slate-100">Batal</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold">Simpan</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Petunjuk mode pilih di peta -->
+        <div id="pickHint" class="fixed top-20 left-1/2 -translate-x-1/2 z-[55] hidden items-center gap-3 bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg">
+            Klik lokasi node di peta
+            <button type="button" onclick="cancelPick()" class="text-sun-300 hover:text-sun-200 font-bold">Batal</button>
+        </div>
+        @endif
+
         <!-- Section Sistem Check-in Warga Posko -->
         <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-            <!-- Form Check-in Warga (Input Manual Kader) -->
+            <!-- Form Check-in Warga (HANYA ADMIN & KADER) -->
+            @can('kelola-data')
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-1">
                 <div class="flex items-center gap-2 mb-4 border-b border-slate-100 pb-3">
                     <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
@@ -198,6 +273,20 @@
                     </button>
                 </form>
             </div>
+            @else
+            <!-- Info untuk Warga / Guest (mode lihat saja) -->
+            <div class="bg-amber-50 p-5 rounded-2xl border border-amber-200 shadow-sm lg:col-span-1 text-xs text-amber-800 space-y-3 h-fit">
+                <div class="flex items-center gap-2 border-b border-amber-200 pb-3">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
+                    <h3 class="font-bold text-amber-900 text-sm">Check-In Warga di Posko</h3>
+                </div>
+                <p>⚠️ Anda mengakses halaman ini sebagai <strong>Warga (Guest)</strong>. Pendataan check-in warga di posko hanya dilakukan oleh <strong>Kader &amp; Admin</strong>.</p>
+                <p>Silakan datang ke posko evakuasi terdekat dan laporkan diri Anda kepada petugas.</p>
+                @guest
+                <a href="{{ route('login') }}" class="inline-block font-bold text-blue-600 hover:underline">Login Petugas →</a>
+                @endguest
+            </div>
+            @endcan
 
             <!-- Tabel Data Check-in Warga + FILTER POSKO -->
             <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2">
@@ -239,6 +328,9 @@
                             <th class="px-2 py-2.5 w-14">Usia</th>
                             <th class="px-3 py-2.5 whitespace-nowrap">Kondisi</th>
                             <th class="px-3 py-2.5 whitespace-nowrap">Waktu</th>
+                            @can('kelola-data')
+                            <th class="px-3 py-2.5 whitespace-nowrap">Aksi</th>
+                            @endcan
                         </tr>
                     </thead>
                     <tbody id="bodyTabel">
@@ -265,11 +357,16 @@
                                     <span class="inline-block bg-sky-50 text-sky-700 border border-sky-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">Lansia / Rentan</span>
                                 @endif
                             </td>
-                            <td class="px-3 py-2.5 text-slate-400 font-mono text-[11px] whitespace-nowrap align-top">{{ $warga->created_at->format('H:i') }} WIB</td>
+                            <td class="px-3 py-2.5 text-slate-400 font-mono text-[11px] whitespace-nowrap align-top">{{ optional($warga->created_at)->format('H:i') }} WIB</td>
+                            @can('kelola-data')
+                            <td class="px-3 py-2.5 align-top">
+                                <button type="button" onclick="hapusCheckin({{ $warga->id }})" class="text-rose-500 hover:text-rose-700 text-[11px] font-bold hover:underline">Hapus</button>
+                            </td>
+                            @endcan
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="7" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko.</td>
+                            <td colspan="{{ $canManage ? 8 : 7 }}" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko.</td>
                         </tr>
                         @endforelse
                     </tbody>
@@ -288,6 +385,22 @@
 
     <script>
         const nodes = @json($nodes);
+        const CAN_MANAGE = @json($canManage);
+        const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+        // Cegah XSS: data warga dimasukkan ke innerHTML, jadi harus di-escape
+        const esc = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+        // Baca respons JSON + tangani error auth / validasi dengan pesan yang jelas
+        async function handleJson(res) {
+            const body = await res.json().catch(() => ({}));
+            if (res.status === 401) throw new Error(body.message || 'Sesi Anda berakhir. Silakan login kembali sebagai Kader / Admin.');
+            if (res.status === 403) throw new Error(body.message || 'Akses ditolak. Hanya Kader / Admin yang boleh melakukan aksi ini.');
+            if (res.status === 419) throw new Error('Sesi kedaluwarsa. Muat ulang halaman lalu coba lagi.');
+            if (res.status === 422) throw new Error(Object.values(body.errors || {}).flat().join('\n') || body.message);
+            if (!res.ok) throw new Error(body.message || 'Terjadi kesalahan server.');
+            return body;
+        }
 
         const map = L.map('map').setView([-7.66744, 112.53658], 13);
 
@@ -300,7 +413,8 @@
             status = (status || '').toUpperCase();
             if (status === 'BAHAYA') return '#e11d48';
             if (status === 'WASPADA') return '#f59e0b';
-            return '#10b981';
+            if (status === 'AMAN') return '#10b981';
+            return '#94a3b8';
         };
 
         function makeIcon(color) {
@@ -321,12 +435,107 @@
             const marker = L.marker([lat, lng], { icon: makeIcon(color) }).addTo(map);
             marker.bindPopup(`
                 <div style="font-family: Inter, sans-serif; min-width: 160px;">
-                    <p style="font-weight:700; font-size:13px; margin-bottom:2px;">${node.node_name}</p>
-                    <p style="font-size:11px; color:#64748b; margin-bottom:4px;">${node.desa || ''}</p>
-                    <span style="font-size:10px; font-weight:700; color:${color}; text-transform:uppercase;">${node.status}</span>
+                    <p style="font-weight:700; font-size:13px; margin-bottom:2px;">${esc(node.node_name)}</p>
+                    <p style="font-size:11px; color:#64748b; margin-bottom:4px;">${esc(node.desa || '')}</p>
+                    <span style="font-size:10px; font-weight:700; color:${color}; text-transform:uppercase;">${node.status === 'UNKNOWN' ? 'Belum ada data' : node.status}</span>
+                    <p style="font-size:11px; color:#475569; margin-top:4px;">Baterai: <b>${node.battery === null ? '-' : node.battery + '%'}</b></p>
                 </div>
             `);
         });
+
+        // ===== Form koordinat node (hanya Admin & Kader) =====
+        let pickMarker = null, picking = false;
+        const nodeModal = document.getElementById('nodeModal');
+
+        function openNodeForm(node) {
+            if (!CAN_MANAGE) return;
+            const f = document.getElementById('nodeForm');
+            document.getElementById('nodeModalTitle').textContent = node ? `Edit Lokasi ${node.node_code}` : 'Tambah Node';
+            f.action = node ? `{{ url('/nodes') }}/${node.id}` : `{{ route('nodes.store') }}`;
+            document.getElementById('nodeMethod').value = node ? 'PUT' : 'POST';
+            document.getElementById('nf_code').value  = node ? node.node_code : '';
+            document.getElementById('nf_desa').value  = node ? (node.desa || '') : '';
+            document.getElementById('nf_lat').value   = node ? Number(node.lat).toFixed(6) : '';
+            document.getElementById('nf_lng').value   = node ? Number(node.lng).toFixed(6) : '';
+            document.getElementById('nf_notes').value = node ? (node.notes || '') : '';
+            document.getElementById('gpsInfo').textContent = 'Berdirilah di dekat node saat mengambil GPS agar koordinatnya akurat.';
+            nodeModal.classList.remove('hidden'); nodeModal.classList.add('flex');
+            showPickMarker();
+        }
+
+        function closeNodeForm() {
+            nodeModal.classList.add('hidden'); nodeModal.classList.remove('flex');
+            if (pickMarker) { map.removeLayer(pickMarker); pickMarker = null; }
+        }
+
+        function setCoords(lat, lng) {
+            document.getElementById('nf_lat').value = Number(lat).toFixed(6);
+            document.getElementById('nf_lng').value = Number(lng).toFixed(6);
+            showPickMarker();
+        }
+
+        function showPickMarker() {
+            const lat = parseFloat(document.getElementById('nf_lat').value);
+            const lng = parseFloat(document.getElementById('nf_lng').value);
+            if (isNaN(lat) || isNaN(lng)) return;
+            if (!pickMarker) pickMarker = L.marker([lat, lng], { icon: makeIcon('#FAB44B') }).addTo(map);
+            pickMarker.setLatLng([lat, lng]);
+        }
+
+        function useMyGps() {
+            const info = document.getElementById('gpsInfo');
+            if (!navigator.geolocation) { info.textContent = 'Browser ini tidak mendukung GPS. Isi koordinat manual atau pilih di peta.'; return; }
+            info.textContent = 'Mengambil lokasi GPS...';
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    setCoords(pos.coords.latitude, pos.coords.longitude);
+                    info.textContent = `Lokasi didapat (akurasi ±${Math.round(pos.coords.accuracy)} m). Periksa lalu klik Simpan.`;
+                },
+                err => {
+                    info.textContent = err.code === 1
+                        ? 'Izin lokasi ditolak. Izinkan akses lokasi di browser, atau pilih di peta.'
+                        : 'Gagal mengambil GPS. Pastikan GPS HP aktif, atau pilih di peta.';
+                },
+                { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
+            );
+        }
+
+        function pickOnMap() {
+            picking = true;
+            nodeModal.classList.add('hidden'); nodeModal.classList.remove('flex');
+            const hint = document.getElementById('pickHint');
+            hint.classList.remove('hidden'); hint.classList.add('flex');
+            document.getElementById('map').scrollIntoView({ behavior: 'smooth', block: 'center' });
+            document.getElementById('map').style.cursor = 'crosshair';
+        }
+
+        function endPick() {
+            picking = false;
+            const hint = document.getElementById('pickHint');
+            hint.classList.add('hidden'); hint.classList.remove('flex');
+            document.getElementById('map').style.cursor = '';
+            nodeModal.classList.remove('hidden'); nodeModal.classList.add('flex');
+        }
+        function cancelPick() { endPick(); }
+
+        if (CAN_MANAGE) {
+            map.on('click', e => {
+                if (!picking) return;
+                setCoords(e.latlng.lat, e.latlng.lng);
+                endPick();
+            });
+            ['nf_lat', 'nf_lng'].forEach(id => document.getElementById(id).addEventListener('input', showPickMarker));
+            nodeModal.addEventListener('click', e => { if (e.target === nodeModal) closeNodeForm(); });
+            document.addEventListener('keydown', e => { if (e.key === 'Escape' && !nodeModal.classList.contains('hidden')) closeNodeForm(); });
+            @if($errors->any() && old('node_code'))
+                openNodeForm(null);
+                document.getElementById('nf_code').value = @json(old('node_code'));
+                document.getElementById('nf_desa').value = @json(old('desa'));
+                document.getElementById('nf_lat').value = @json(old('latitude'));
+                document.getElementById('nf_lng').value = @json(old('longitude'));
+                document.getElementById('nf_notes').value = @json(old('notes'));
+            @endif
+        }
 
         // Routing Realistis Mengikuti Kontur Jalan
         L.Routing.control({
@@ -362,50 +571,59 @@
             map.fitBounds(bounds, { padding: [40, 40] });
         }
 
-        // Auto-fill Teks Lokasi Posko saat Select Posko Berubah
+        // ===== Fitur check-in (hanya dirender untuk Admin & Kader) =====
         const selectPosko = document.getElementById('selectPosko');
         const teksLokasiPosko = document.getElementById('teksLokasiPosko');
-
-        selectPosko.addEventListener('change', function() {
-            const selectedOption = this.options[this.selectedIndex];
-            teksLokasiPosko.innerText = selectedOption.getAttribute('data-lokasi');
-        });
-
-        // Handling Form Check-In
         const formCheckin = document.getElementById('formCheckin');
-        formCheckin.addEventListener('submit', function(e) {
-            e.preventDefault();
 
-            const selectedOption = selectPosko.options[selectPosko.selectedIndex];
+        if (CAN_MANAGE && formCheckin) {
+            selectPosko.addEventListener('change', function() {
+                const selectedOption = this.options[this.selectedIndex];
+                teksLokasiPosko.innerText = selectedOption.getAttribute('data-lokasi');
+            });
 
-            const dataPayload = {
-                posko_id: selectPosko.value,
-                lokasi_posko: selectedOption.getAttribute('data-lokasi'),
-                nama_lengkap: document.getElementById('nama_lengkap').value,
-                asal: document.getElementById('asal').value,
-                usia: document.getElementById('usia').value,
-                kondisi: document.getElementById('kondisi').value
-            };
+            formCheckin.addEventListener('submit', function(e) {
+                e.preventDefault();
 
-            fetch('{{ route("peta-evakuasi.checkin") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
-                },
-                body: JSON.stringify(dataPayload)
-            })
-            .then(res => res.json())
-            .then(res => {
-                if(res.success) {
+                const dataPayload = {
+                    posko_id: selectPosko.value,
+                    nama_lengkap: document.getElementById('nama_lengkap').value,
+                    asal: document.getElementById('asal').value,
+                    usia: document.getElementById('usia').value,
+                    kondisi: document.getElementById('kondisi').value
+                };
+
+                fetch('{{ route("peta-evakuasi.checkin") }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': CSRF_TOKEN
+                    },
+                    body: JSON.stringify(dataPayload)
+                })
+                .then(handleJson)
+                .then(res => {
                     alert(res.message);
                     formCheckin.reset();
                     teksLokasiPosko.innerText = selectPosko.options[0].getAttribute('data-lokasi');
-                    updateCheckinTable();
-                }
+                    updateCheckinTable(filterPosko.value);
+                })
+                .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'));
+            });
+        }
+
+        function hapusCheckin(id) {
+            if (!CAN_MANAGE || !confirm('Hapus data check-in warga ini?')) return;
+
+            fetch(`{{ url('/peta-evakuasi/checkin') }}/${id}`, {
+                method: 'DELETE',
+                headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN }
             })
-            .catch(err => alert("Terjadi kesalahan koneksi server."));
-        });
+            .then(handleJson)
+            .then(() => updateCheckinTable(filterPosko.value))
+            .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'));
+        }
 
         // Handling Filter Posko
         const filterPosko = document.getElementById('filterPosko');
@@ -415,14 +633,14 @@
 
         // Update Tabel Realtime dengan Support Filter
         function updateCheckinTable(selectedFilter = 'SEMUA') {
-            fetch(`{{ route("peta-evakuasi.checkins-list") }}?posko_id=${selectedFilter}`)
-            .then(res => res.json())
+            fetch(`{{ route("peta-evakuasi.checkins-list") }}?posko_id=${encodeURIComponent(selectedFilter)}`, { headers: { 'Accept': 'application/json' } })
+            .then(handleJson)
             .then(data => {
                 document.getElementById('labelTotal').innerText = `Total: ${data.length} Warga`;
                 const tbody = document.getElementById('bodyTabel');
 
                 if(data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko ini.</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="${CAN_MANAGE ? 8 : 7}" class="text-center py-6 text-slate-400 font-mono">Belum ada warga terdaftar di posko ini.</td></tr>`;
                     return;
                 }
 
@@ -438,19 +656,21 @@
                     return `
                         <tr class="border-b border-slate-100 hover:bg-slate-50">
                             <td class="px-2 py-2.5 font-medium font-mono text-center align-top">${idx + 1}</td>
-                            <td class="px-3 py-2.5 font-bold text-slate-800 align-top">${item.nama_lengkap}</td>
+                            <td class="px-3 py-2.5 font-bold text-slate-800 align-top">${esc(item.nama_lengkap)}</td>
                             <td class="px-3 py-2.5 align-top">
-                                <span class="font-bold text-blue-600 block">${item.posko_id}</span>
-                                <span class="text-[10px] text-slate-400 block leading-tight">${item.lokasi_posko}</span>
+                                <span class="font-bold text-blue-600 block">${esc(item.posko_id)}</span>
+                                <span class="text-[10px] text-slate-400 block leading-tight">${esc(item.lokasi_posko)}</span>
                             </td>
-                            <td class="px-3 py-2.5 align-top leading-relaxed text-slate-700 min-w-[120px]">${item.asal}</td>
-                            <td class="px-2 py-2.5 font-mono whitespace-nowrap align-top">${item.usia} Thn</td>
+                            <td class="px-3 py-2.5 align-top leading-relaxed text-slate-700 min-w-[120px]">${esc(item.asal)}</td>
+                            <td class="px-2 py-2.5 font-mono whitespace-nowrap align-top">${esc(item.usia)} Thn</td>
                             <td class="px-3 py-2.5 whitespace-nowrap align-top">${badge}</td>
                             <td class="px-3 py-2.5 text-slate-400 font-mono text-[11px] whitespace-nowrap align-top">${time} WIB</td>
+                            ${CAN_MANAGE ? `<td class="px-3 py-2.5 align-top"><button type="button" onclick="hapusCheckin(${Number(item.id)})" class="text-rose-500 hover:text-rose-700 text-[11px] font-bold hover:underline">Hapus</button></td>` : ''}
                         </tr>
                     `;
                 }).join('');
-            });
+            })
+            .catch(err => console.error(err));
         }
     </script>
 </body>

@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\EvacuationCheckin;
+use App\Models\SensorLog;
+use App\Models\SensorNode;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class EvacuationMapController extends Controller
 {
@@ -37,62 +40,7 @@ class EvacuationMapController extends Controller
 
     public function index(Request $request)
     {
-        $nodes = [
-            (object)[
-                'id' => 'Node-01',
-                'node_name' => 'Node-01',
-                'desa' => 'Padusan',
-                'lat' => -7.69100,
-                'lng' => 112.54100,
-                'status' => 'BAHAYA',
-                'notes' => 'Lereng curam dekat permukiman, riwayat longsor & retakan tanah terpantau'
-            ],
-            (object)[
-                'id' => 'Node-02',
-                'node_name' => 'Node-02',
-                'desa' => 'Sajen',
-                'lat' => -7.67500,
-                'lng' => 112.53500,
-                'status' => 'WASPADA',
-                'notes' => 'Perbukitan dengan kelembapan tinggi, titik kumpul evakuasi sementara'
-            ],
-            (object)[
-                'id' => 'Node-03',
-                'node_name' => 'Node-03',
-                'desa' => 'Claket',
-                'lat' => -7.66200,
-                'lng' => 112.54000,
-                'status' => 'WASPADA',
-                'notes' => 'Kelembapan tanah meningkat, titik temu persimpangan jalur atas'
-            ],
-            (object)[
-                'id' => 'Node-04',
-                'node_name' => 'Node-04',
-                'desa' => 'Cepokolimo',
-                'lat' => -7.65200,
-                'lng' => 112.52900,
-                'status' => 'AMAN',
-                'notes' => 'Dataran lebih landai, aman untuk titik kumpul & check-in warga'
-            ],
-            (object)[
-                'id' => 'Node-05',
-                'node_name' => 'Node-05',
-                'desa' => 'Kembangbelor',
-                'lat' => -7.64400,
-                'lng' => 112.54700,
-                'status' => 'AMAN',
-                'notes' => 'Titik kumpul evakuasi utama, fasilitas kesehatan & dapur umum'
-            ],
-            (object)[
-                'id' => 'Node-06',
-                'node_name' => 'Node-06',
-                'desa' => 'Kemiri',
-                'lat' => -7.66000,
-                'lng' => 112.55200,
-                'status' => 'AMAN',
-                'notes' => 'Zona permukiman padat, jalur evakuasi utama ke jalan raya'
-            ]
-        ];
+        $nodes = $this->nodesForMap();
 
         $daftarPosko = $this->getDaftarPosko();
 
@@ -112,16 +60,64 @@ class EvacuationMapController extends Controller
         return view('peta-evakuasi', compact('nodes', 'checkins', 'daftarPosko'));
     }
 
+    /**
+     * Node sensor dari database + data terakhir tiap node (status risiko & baterai).
+     */
+    private function nodesForMap(): array
+    {
+        try {
+            $nodes = SensorNode::orderBy('node_code')->get();
+
+            // Baris sensor_data terbaru per node (satu query)
+            $latest = SensorLog::without('prediction')
+                ->whereIn('id', SensorLog::without('prediction')->selectRaw('MAX(id)')->groupBy('node_id')->toBase())
+                ->get()
+                ->keyBy('node_id');
+
+            // Baris terbaru yang memuat data baterai (bisa lebih lama dari baris terbaru)
+            $battery = SensorLog::without('prediction')
+                ->whereIn('id', SensorLog::without('prediction')->selectRaw('MAX(id)')->whereNotNull('battery_percent')->groupBy('node_id')->toBase())
+                ->get()
+                ->keyBy('node_id');
+        } catch (\Throwable $e) {
+            return [];
+        }
+
+        return $nodes->map(function (SensorNode $n) use ($latest, $battery) {
+            $last = $latest->get($n->id);
+            $bat  = $battery->get($n->id);
+
+            return (object) [
+                'id'          => $n->id,
+                'node_code'   => $n->node_code,
+                'node_name'   => $n->node_name,
+                'desa'        => $n->desa,
+                'notes'       => $n->notes,
+                'lat'         => $n->latitude,
+                'lng'         => $n->longitude,
+                'status'      => strtoupper($last?->status ?: 'UNKNOWN'),
+                'battery'     => $bat?->battery_percent,
+                'voltage'     => $bat?->battery_voltage,
+                'battery_at'  => $bat?->timestamp ? \Illuminate\Support\Carbon::parse($bat->timestamp)->diffForHumans() : null,
+            ];
+        })->all();
+    }
+
     public function storeCheckin(Request $request)
     {
+        // Hanya Admin / Kader (dijaga middleware role:admin,kader di routes/web.php)
+        $daftarPosko = collect($this->getDaftarPosko())->keyBy('id');
+
         $validated = $request->validate([
-            'posko_id'     => 'required|string',
-            'lokasi_posko' => 'required|string',
+            'posko_id'     => ['required', 'string', Rule::in($daftarPosko->keys()->all())],
             'nama_lengkap' => 'required|string|max:255',
             'asal'         => 'required|string|max:255',
             'usia'         => 'required|integer|min:0|max:120',
             'kondisi'      => 'required|in:Sehat,Luka Ringan,Luka Berat,Lansia / Rentan',
         ]);
+
+        // Lokasi posko diambil dari server, bukan dari input browser
+        $validated['lokasi_posko'] = $daftarPosko[$validated['posko_id']]['lokasi'];
 
         $checkin = EvacuationCheckin::create($validated);
 
@@ -129,6 +125,17 @@ class EvacuationMapController extends Controller
             'success' => true,
             'message' => 'Data warga berhasil di-checkin di ' . $checkin->posko_id,
             'data'    => $checkin
+        ]);
+    }
+
+    public function destroyCheckin($id)
+    {
+        // Hanya Admin / Kader (dijaga middleware role:admin,kader di routes/web.php)
+        EvacuationCheckin::findOrFail($id)->delete();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Data check-in berhasil dihapus.',
         ]);
     }
 

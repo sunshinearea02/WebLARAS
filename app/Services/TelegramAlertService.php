@@ -45,7 +45,11 @@ class TelegramAlertService
         }
     }
 
-    public function sendIfChanged(string $status, array $data): bool
+    /**
+     * @return bool|null true = terkirim, false = gagal kirim,
+     *                   null = dilewati (status sama & masih cooldown)
+     */
+    public function sendIfChanged(string $status, array $data): ?bool
     {
         $status  = strtoupper(trim($status));
         $cacheKey = 'telegram_last_alert_status';
@@ -63,7 +67,7 @@ class TelegramAlertService
 
         
         if ($lastSentStatus === $status && $inCooldown) {
-            return false; 
+            return null;
         }
 
         $message = $this->buildMessage($status, $data);
