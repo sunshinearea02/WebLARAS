@@ -6,27 +6,12 @@
     <title>Daftar Kader — LARAS Control Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
     @include('partials.theme')
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen flex flex-col justify-between">
+<body class="bg-air-50 text-deep-900 min-h-screen flex flex-col justify-between">
 
-    <nav class="max-w-5xl w-full mx-auto px-6 py-4 flex justify-between items-center bg-white/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-200">
-        <a href="/" class="flex items-center space-x-3">
-            <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-10 h-10 rounded-xl object-cover shadow-md">
-            <div>
-                <h1 class="text-xl font-bold tracking-tight text-slate-900 leading-none">LARAS</h1>
-                <p class="text-[10px] uppercase tracking-widest text-slate-500 font-bold mt-0.5">Control Center</p>
-            </div>
-        </a>
-        <a href="{{ route('login') }}" class="text-sm font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1.5">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-            Kembali ke Login
-        </a>
-    </nav>
+    @include('partials.navbar', ['active' => null])
 
     <div class="max-w-md w-full mx-auto px-6 py-10 my-auto">
 

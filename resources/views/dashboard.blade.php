@@ -8,11 +8,935 @@
     <script src="https://cdn.tailwindcss.com"></script>
     @include('partials.theme')
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- CSS Leaflet ditanam langsung, supaya peta mini tetap rapi walau CDN gagal -->
+    <style id="leaflet-css">
+/* required styles */
+
+.leaflet-pane,
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-tile-container,
+.leaflet-pane > svg,
+.leaflet-pane > canvas,
+.leaflet-zoom-box,
+.leaflet-image-layer,
+.leaflet-layer {
+	position: absolute;
+	left: 0;
+	top: 0;
+	}
+.leaflet-container {
+	overflow: hidden;
+	}
+.leaflet-tile,
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	-webkit-user-select: none;
+	   -moz-user-select: none;
+	        user-select: none;
+	  -webkit-user-drag: none;
+	}
+/* Prevents IE11 from highlighting tiles in blue */
+.leaflet-tile::selection {
+	background: transparent;
+}
+/* Safari renders non-retina tile on retina better with this, but Chrome is worse */
+.leaflet-safari .leaflet-tile {
+	image-rendering: -webkit-optimize-contrast;
+	}
+/* hack that prevents hw layers "stretching" when loading new tiles */
+.leaflet-safari .leaflet-tile-container {
+	width: 1600px;
+	height: 1600px;
+	-webkit-transform-origin: 0 0;
+	}
+.leaflet-marker-icon,
+.leaflet-marker-shadow {
+	display: block;
+	}
+/* .leaflet-container svg: reset svg max-width decleration shipped in Joomla! (joomla.org) 3.x */
+/* .leaflet-container img: map is broken in FF if you have max-width: 100% on tiles */
+.leaflet-container .leaflet-overlay-pane svg {
+	max-width: none !important;
+	max-height: none !important;
+	}
+.leaflet-container .leaflet-marker-pane img,
+.leaflet-container .leaflet-shadow-pane img,
+.leaflet-container .leaflet-tile-pane img,
+.leaflet-container img.leaflet-image-layer,
+.leaflet-container .leaflet-tile {
+	max-width: none !important;
+	max-height: none !important;
+	width: auto;
+	padding: 0;
+	}
+
+.leaflet-container img.leaflet-tile {
+	/* See: https://bugs.chromium.org/p/chromium/issues/detail?id=600120 */
+	mix-blend-mode: plus-lighter;
+}
+
+.leaflet-container.leaflet-touch-zoom {
+	-ms-touch-action: pan-x pan-y;
+	touch-action: pan-x pan-y;
+	}
+.leaflet-container.leaflet-touch-drag {
+	-ms-touch-action: pinch-zoom;
+	/* Fallback for FF which doesn't support pinch-zoom */
+	touch-action: none;
+	touch-action: pinch-zoom;
+}
+.leaflet-container.leaflet-touch-drag.leaflet-touch-zoom {
+	-ms-touch-action: none;
+	touch-action: none;
+}
+.leaflet-container {
+	-webkit-tap-highlight-color: transparent;
+}
+.leaflet-container a {
+	-webkit-tap-highlight-color: rgba(51, 181, 229, 0.4);
+}
+.leaflet-tile {
+	filter: inherit;
+	visibility: hidden;
+	}
+.leaflet-tile-loaded {
+	visibility: inherit;
+	}
+.leaflet-zoom-box {
+	width: 0;
+	height: 0;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	z-index: 800;
+	}
+/* workaround for https://bugzilla.mozilla.org/show_bug.cgi?id=888319 */
+.leaflet-overlay-pane svg {
+	-moz-user-select: none;
+	}
+
+.leaflet-pane         { z-index: 400; }
+
+.leaflet-tile-pane    { z-index: 200; }
+.leaflet-overlay-pane { z-index: 400; }
+.leaflet-shadow-pane  { z-index: 500; }
+.leaflet-marker-pane  { z-index: 600; }
+.leaflet-tooltip-pane   { z-index: 650; }
+.leaflet-popup-pane   { z-index: 700; }
+
+.leaflet-map-pane canvas { z-index: 100; }
+.leaflet-map-pane svg    { z-index: 200; }
+
+.leaflet-vml-shape {
+	width: 1px;
+	height: 1px;
+	}
+.lvml {
+	behavior: url(#default#VML);
+	display: inline-block;
+	position: absolute;
+	}
+
+
+/* control positioning */
+
+.leaflet-control {
+	position: relative;
+	z-index: 800;
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+.leaflet-top,
+.leaflet-bottom {
+	position: absolute;
+	z-index: 1000;
+	pointer-events: none;
+	}
+.leaflet-top {
+	top: 0;
+	}
+.leaflet-right {
+	right: 0;
+	}
+.leaflet-bottom {
+	bottom: 0;
+	}
+.leaflet-left {
+	left: 0;
+	}
+.leaflet-control {
+	float: left;
+	clear: both;
+	}
+.leaflet-right .leaflet-control {
+	float: right;
+	}
+.leaflet-top .leaflet-control {
+	margin-top: 10px;
+	}
+.leaflet-bottom .leaflet-control {
+	margin-bottom: 10px;
+	}
+.leaflet-left .leaflet-control {
+	margin-left: 10px;
+	}
+.leaflet-right .leaflet-control {
+	margin-right: 10px;
+	}
+
+
+/* zoom and fade animations */
+
+.leaflet-fade-anim .leaflet-popup {
+	opacity: 0;
+	-webkit-transition: opacity 0.2s linear;
+	   -moz-transition: opacity 0.2s linear;
+	        transition: opacity 0.2s linear;
+	}
+.leaflet-fade-anim .leaflet-map-pane .leaflet-popup {
+	opacity: 1;
+	}
+.leaflet-zoom-animated {
+	-webkit-transform-origin: 0 0;
+	    -ms-transform-origin: 0 0;
+	        transform-origin: 0 0;
+	}
+svg.leaflet-zoom-animated {
+	will-change: transform;
+}
+
+.leaflet-zoom-anim .leaflet-zoom-animated {
+	-webkit-transition: -webkit-transform 0.25s cubic-bezier(0,0,0.25,1);
+	   -moz-transition:    -moz-transform 0.25s cubic-bezier(0,0,0.25,1);
+	        transition:         transform 0.25s cubic-bezier(0,0,0.25,1);
+	}
+.leaflet-zoom-anim .leaflet-tile,
+.leaflet-pan-anim .leaflet-tile {
+	-webkit-transition: none;
+	   -moz-transition: none;
+	        transition: none;
+	}
+
+.leaflet-zoom-anim .leaflet-zoom-hide {
+	visibility: hidden;
+	}
+
+
+/* cursors */
+
+.leaflet-interactive {
+	cursor: pointer;
+	}
+.leaflet-grab {
+	cursor: -webkit-grab;
+	cursor:    -moz-grab;
+	cursor:         grab;
+	}
+.leaflet-crosshair,
+.leaflet-crosshair .leaflet-interactive {
+	cursor: crosshair;
+	}
+.leaflet-popup-pane,
+.leaflet-control {
+	cursor: auto;
+	}
+.leaflet-dragging .leaflet-grab,
+.leaflet-dragging .leaflet-grab .leaflet-interactive,
+.leaflet-dragging .leaflet-marker-draggable {
+	cursor: move;
+	cursor: -webkit-grabbing;
+	cursor:    -moz-grabbing;
+	cursor:         grabbing;
+	}
+
+/* marker & overlays interactivity */
+.leaflet-marker-icon,
+.leaflet-marker-shadow,
+.leaflet-image-layer,
+.leaflet-pane > svg path,
+.leaflet-tile-container {
+	pointer-events: none;
+	}
+
+.leaflet-marker-icon.leaflet-interactive,
+.leaflet-image-layer.leaflet-interactive,
+.leaflet-pane > svg path.leaflet-interactive,
+svg.leaflet-image-layer.leaflet-interactive path {
+	pointer-events: visiblePainted; /* IE 9-10 doesn't have auto */
+	pointer-events: auto;
+	}
+
+/* visual tweaks */
+
+.leaflet-container {
+	background: #ddd;
+	outline-offset: 1px;
+	}
+.leaflet-container a {
+	color: #0078A8;
+	}
+.leaflet-zoom-box {
+	border: 2px dotted #38f;
+	background: rgba(255,255,255,0.5);
+	}
+
+
+/* general typography */
+.leaflet-container {
+	font-family: "Helvetica Neue", Arial, Helvetica, sans-serif;
+	font-size: 12px;
+	font-size: 0.75rem;
+	line-height: 1.5;
+	}
+
+
+/* general toolbar styles */
+
+.leaflet-bar {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.65);
+	border-radius: 4px;
+	}
+.leaflet-bar a {
+	background-color: #fff;
+	border-bottom: 1px solid #ccc;
+	width: 26px;
+	height: 26px;
+	line-height: 26px;
+	display: block;
+	text-align: center;
+	text-decoration: none;
+	color: black;
+	}
+.leaflet-bar a,
+.leaflet-control-layers-toggle {
+	background-position: 50% 50%;
+	background-repeat: no-repeat;
+	display: block;
+	}
+.leaflet-bar a:hover,
+.leaflet-bar a:focus {
+	background-color: #f4f4f4;
+	}
+.leaflet-bar a:first-child {
+	border-top-left-radius: 4px;
+	border-top-right-radius: 4px;
+	}
+.leaflet-bar a:last-child {
+	border-bottom-left-radius: 4px;
+	border-bottom-right-radius: 4px;
+	border-bottom: none;
+	}
+.leaflet-bar a.leaflet-disabled {
+	cursor: default;
+	background-color: #f4f4f4;
+	color: #bbb;
+	}
+
+.leaflet-touch .leaflet-bar a {
+	width: 30px;
+	height: 30px;
+	line-height: 30px;
+	}
+.leaflet-touch .leaflet-bar a:first-child {
+	border-top-left-radius: 2px;
+	border-top-right-radius: 2px;
+	}
+.leaflet-touch .leaflet-bar a:last-child {
+	border-bottom-left-radius: 2px;
+	border-bottom-right-radius: 2px;
+	}
+
+/* zoom control */
+
+.leaflet-control-zoom-in,
+.leaflet-control-zoom-out {
+	font: bold 18px 'Lucida Console', Monaco, monospace;
+	text-indent: 1px;
+	}
+
+.leaflet-touch .leaflet-control-zoom-in, .leaflet-touch .leaflet-control-zoom-out  {
+	font-size: 22px;
+	}
+
+
+/* layers control */
+
+.leaflet-control-layers {
+	box-shadow: 0 1px 5px rgba(0,0,0,0.4);
+	background: #fff;
+	border-radius: 5px;
+	}
+.leaflet-control-layers-toggle {
+	background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/layers.png);
+	width: 36px;
+	height: 36px;
+	}
+.leaflet-retina .leaflet-control-layers-toggle {
+	background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/layers-2x.png);
+	background-size: 26px 26px;
+	}
+.leaflet-touch .leaflet-control-layers-toggle {
+	width: 44px;
+	height: 44px;
+	}
+.leaflet-control-layers .leaflet-control-layers-list,
+.leaflet-control-layers-expanded .leaflet-control-layers-toggle {
+	display: none;
+	}
+.leaflet-control-layers-expanded .leaflet-control-layers-list {
+	display: block;
+	position: relative;
+	}
+.leaflet-control-layers-expanded {
+	padding: 6px 10px 6px 6px;
+	color: #333;
+	background: #fff;
+	}
+.leaflet-control-layers-scrollbar {
+	overflow-y: scroll;
+	overflow-x: hidden;
+	padding-right: 5px;
+	}
+.leaflet-control-layers-selector {
+	margin-top: 2px;
+	position: relative;
+	top: 1px;
+	}
+.leaflet-control-layers label {
+	display: block;
+	font-size: 13px;
+	font-size: 1.08333em;
+	}
+.leaflet-control-layers-separator {
+	height: 0;
+	border-top: 1px solid #ddd;
+	margin: 5px -10px 5px -6px;
+	}
+
+/* Default icon URLs */
+.leaflet-default-icon-path { /* used only in path-guessing heuristic, see L.Icon.Default */
+	background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png);
+	}
+
+
+/* attribution and scale controls */
+
+.leaflet-container .leaflet-control-attribution {
+	background: #fff;
+	background: rgba(255, 255, 255, 0.8);
+	margin: 0;
+	}
+.leaflet-control-attribution,
+.leaflet-control-scale-line {
+	padding: 0 5px;
+	color: #333;
+	line-height: 1.4;
+	}
+.leaflet-control-attribution a {
+	text-decoration: none;
+	}
+.leaflet-control-attribution a:hover,
+.leaflet-control-attribution a:focus {
+	text-decoration: underline;
+	}
+.leaflet-attribution-flag {
+	display: inline !important;
+	vertical-align: baseline !important;
+	width: 1em;
+	height: 0.6669em;
+	}
+.leaflet-left .leaflet-control-scale {
+	margin-left: 5px;
+	}
+.leaflet-bottom .leaflet-control-scale {
+	margin-bottom: 5px;
+	}
+.leaflet-control-scale-line {
+	border: 2px solid #777;
+	border-top: none;
+	line-height: 1.1;
+	padding: 2px 5px 1px;
+	white-space: nowrap;
+	-moz-box-sizing: border-box;
+	     box-sizing: border-box;
+	background: rgba(255, 255, 255, 0.8);
+	text-shadow: 1px 1px #fff;
+	}
+.leaflet-control-scale-line:not(:first-child) {
+	border-top: 2px solid #777;
+	border-bottom: none;
+	margin-top: -2px;
+	}
+.leaflet-control-scale-line:not(:first-child):not(:last-child) {
+	border-bottom: 2px solid #777;
+	}
+
+.leaflet-touch .leaflet-control-attribution,
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	box-shadow: none;
+	}
+.leaflet-touch .leaflet-control-layers,
+.leaflet-touch .leaflet-bar {
+	border: 2px solid rgba(0,0,0,0.2);
+	background-clip: padding-box;
+	}
+
+
+/* popup */
+
+.leaflet-popup {
+	position: absolute;
+	text-align: center;
+	margin-bottom: 20px;
+	}
+.leaflet-popup-content-wrapper {
+	padding: 1px;
+	text-align: left;
+	border-radius: 12px;
+	}
+.leaflet-popup-content {
+	margin: 13px 24px 13px 20px;
+	line-height: 1.3;
+	font-size: 13px;
+	font-size: 1.08333em;
+	min-height: 1px;
+	}
+.leaflet-popup-content p {
+	margin: 17px 0;
+	margin: 1.3em 0;
+	}
+.leaflet-popup-tip-container {
+	width: 40px;
+	height: 20px;
+	position: absolute;
+	left: 50%;
+	margin-top: -1px;
+	margin-left: -20px;
+	overflow: hidden;
+	pointer-events: none;
+	}
+.leaflet-popup-tip {
+	width: 17px;
+	height: 17px;
+	padding: 1px;
+
+	margin: -10px auto 0;
+	pointer-events: auto;
+
+	-webkit-transform: rotate(45deg);
+	   -moz-transform: rotate(45deg);
+	    -ms-transform: rotate(45deg);
+	        transform: rotate(45deg);
+	}
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+	background: white;
+	color: #333;
+	box-shadow: 0 3px 14px rgba(0,0,0,0.4);
+	}
+.leaflet-container a.leaflet-popup-close-button {
+	position: absolute;
+	top: 0;
+	right: 0;
+	border: none;
+	text-align: center;
+	width: 24px;
+	height: 24px;
+	font: 16px/24px Tahoma, Verdana, sans-serif;
+	color: #757575;
+	text-decoration: none;
+	background: transparent;
+	}
+.leaflet-container a.leaflet-popup-close-button:hover,
+.leaflet-container a.leaflet-popup-close-button:focus {
+	color: #585858;
+	}
+.leaflet-popup-scrolled {
+	overflow: auto;
+	}
+
+.leaflet-oldie .leaflet-popup-content-wrapper {
+	-ms-zoom: 1;
+	}
+.leaflet-oldie .leaflet-popup-tip {
+	width: 24px;
+	margin: 0 auto;
+
+	-ms-filter: "progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678)";
+	filter: progid:DXImageTransform.Microsoft.Matrix(M11=0.70710678, M12=0.70710678, M21=-0.70710678, M22=0.70710678);
+	}
+
+.leaflet-oldie .leaflet-control-zoom,
+.leaflet-oldie .leaflet-control-layers,
+.leaflet-oldie .leaflet-popup-content-wrapper,
+.leaflet-oldie .leaflet-popup-tip {
+	border: 1px solid #999;
+	}
+
+
+/* div icon */
+
+.leaflet-div-icon {
+	background: #fff;
+	border: 1px solid #666;
+	}
+
+
+/* Tooltip */
+/* Base styles for the element that has a tooltip */
+.leaflet-tooltip {
+	position: absolute;
+	padding: 6px;
+	background-color: #fff;
+	border: 1px solid #fff;
+	border-radius: 3px;
+	color: #222;
+	white-space: nowrap;
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	pointer-events: none;
+	box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+	}
+.leaflet-tooltip.leaflet-interactive {
+	cursor: pointer;
+	pointer-events: auto;
+	}
+.leaflet-tooltip-top:before,
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	position: absolute;
+	pointer-events: none;
+	border: 6px solid transparent;
+	background: transparent;
+	content: "";
+	}
+
+/* Directions */
+
+.leaflet-tooltip-bottom {
+	margin-top: 6px;
+}
+.leaflet-tooltip-top {
+	margin-top: -6px;
+}
+.leaflet-tooltip-bottom:before,
+.leaflet-tooltip-top:before {
+	left: 50%;
+	margin-left: -6px;
+	}
+.leaflet-tooltip-top:before {
+	bottom: 0;
+	margin-bottom: -12px;
+	border-top-color: #fff;
+	}
+.leaflet-tooltip-bottom:before {
+	top: 0;
+	margin-top: -12px;
+	margin-left: -6px;
+	border-bottom-color: #fff;
+	}
+.leaflet-tooltip-left {
+	margin-left: -6px;
+}
+.leaflet-tooltip-right {
+	margin-left: 6px;
+}
+.leaflet-tooltip-left:before,
+.leaflet-tooltip-right:before {
+	top: 50%;
+	margin-top: -6px;
+	}
+.leaflet-tooltip-left:before {
+	right: 0;
+	margin-right: -12px;
+	border-left-color: #fff;
+	}
+.leaflet-tooltip-right:before {
+	left: 0;
+	margin-left: -12px;
+	border-right-color: #fff;
+	}
+
+/* Printing */
+
+@media print {
+	/* Prevent printers from removing background-images of controls. */
+	.leaflet-control {
+		-webkit-print-color-adjust: exact;
+		print-color-adjust: exact;
+		}
+	}
+
+.leaflet-routing-container, .leaflet-routing-error {
+    width: 320px;
+    background-color: white;
+    padding-top: 4px;
+    transition: all 0.2s ease;
+    box-sizing: border-box;
+}
+
+.leaflet-control-container .leaflet-routing-container-hide {
+    width: 32px;
+    height: 32px;
+}
+
+.leaflet-routing-container h2 {
+    font-size: 14px;
+}
+
+.leaflet-routing-container h3 {
+    font-size: 12px;
+    font-weight: normal;
+}
+
+.leaflet-routing-collapsible .leaflet-routing-geocoders {
+    margin-top: 20px;
+}
+
+.leaflet-routing-alt, .leaflet-routing-geocoders, .leaflet-routing-error {
+    padding: 6px;
+    margin-top: 2px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid #ccc;
+    max-height: 320px;
+    overflow-y: auto;
+    transition: all 0.2s ease;
+}
+
+.leaflet-control-container .leaflet-routing-container-hide .leaflet-routing-alt, 
+.leaflet-control-container .leaflet-routing-container-hide .leaflet-routing-geocoders {
+    display: none;
+}
+
+.leaflet-bar .leaflet-routing-alt:last-child {
+    border-bottom: none;
+}
+
+.leaflet-routing-alt-minimized {
+    color: #888;
+    max-height: 64px;
+    overflow: hidden;
+    cursor: pointer;
+}
+
+.leaflet-routing-alt table {
+    border-collapse: collapse;
+}
+
+.leaflet-routing-alt tr:hover {
+    background-color: #eee;
+    cursor: pointer;
+}
+
+.leaflet-routing-alt::-webkit-scrollbar {
+    width: 8px;
+}
+
+.leaflet-routing-alt::-webkit-scrollbar-track {
+    border-radius: 2px;
+    background-color: #eee;
+}
+
+.leaflet-routing-alt::-webkit-scrollbar-thumb {
+    border-radius: 2px;
+    background-color: #888;
+}
+
+.leaflet-routing-icon {
+    background-image: url(https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet.routing.icons.png);
+    -webkit-background-size: 240px 20px;
+    background-size: 240px 20px;
+    background-repeat: no-repeat;
+    margin: 0;
+    content: '';
+    display: inline-block;
+    vertical-align: top;
+    width: 20px;
+    height: 20px;
+}
+
+.leaflet-routing-icon-continue         { background-position: 0 0; }
+.leaflet-routing-icon-sharp-right      { background-position: -20px 0; }
+.leaflet-routing-icon-turn-right       { background-position: -40px 0; }
+.leaflet-routing-icon-bear-right       { background-position: -60px 0; }
+.leaflet-routing-icon-u-turn           { background-position: -80px 0; }
+.leaflet-routing-icon-sharp-left       { background-position: -100px 0; }
+.leaflet-routing-icon-turn-left        { background-position: -120px 0; }
+.leaflet-routing-icon-bear-left        { background-position: -140px 0; }
+.leaflet-routing-icon-depart           { background-position: -160px 0; }
+.leaflet-routing-icon-enter-roundabout { background-position: -180px 0; }
+.leaflet-routing-icon-arrive           { background-position: -200px 0; }
+.leaflet-routing-icon-via              { background-position: -220px 0; }
+
+.leaflet-routing-geocoders div {
+    padding: 4px 0px 4px 0px;
+}
+
+.leaflet-routing-geocoders input {
+    width: 303px;
+    width: calc(100% - 4px);
+    line-height: 1.67;
+    border: 1px solid #ccc;
+}
+
+.leaflet-routing-geocoders button {
+    font: bold 18px 'Lucida Console', Monaco, monospace;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: white;
+    margin: 0;
+    margin-right: 3px;
+    float: right;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.leaflet-routing-add-waypoint:after {
+    content: '+';
+}
+
+.leaflet-routing-reverse-waypoints:after {
+    font-weight: normal;
+    content: '\21c5';
+}
+
+.leaflet-routing-geocoders button:hover {
+    background-color: #eee;
+}
+
+.leaflet-routing-geocoders input,.leaflet-routing-remove-waypoint,.leaflet-routing-geocoder {
+    position: relative;
+}
+
+.leaflet-routing-geocoder-result {
+    font: 12px/1.5 "Helvetica Neue", Arial, Helvetica, sans-serif;
+    position: absolute;
+    max-height: 0;
+    overflow: hidden;
+    transition: all 0.5s ease;
+    z-index: 1000; /* Arbitrary, but try to be above "most" things. */
+}
+
+.leaflet-routing-geocoder-result table {
+    width: 100%;
+    border: 1px solid #ccc;
+    border-radius: 0 0 4px 4px;
+    background-color: white;
+    cursor: pointer;
+}
+
+.leaflet-routing-geocoder-result-open {
+    max-height: 800px;
+}
+
+.leaflet-routing-geocoder-selected, .leaflet-routing-geocoder-result tr:hover {
+    background-color: #eee;
+}
+
+.leaflet-routing-geocoder-no-results {
+    font-style: italic;
+    color: #888;
+}
+
+.leaflet-routing-remove-waypoint {
+    background-color: transparent;
+    display: inline-block;
+    vertical-align: middle;
+    cursor: pointer;
+}
+
+.leaflet-routing-remove-waypoint:after {
+    position: absolute;
+    display: block;
+    width: 15px;
+    height: 1px;
+    z-index: 1;
+    right: 1px;
+    top: 4px;
+    bottom: 0;
+    margin: auto;
+    padding: 2px;
+    font-size: 18px;
+    font-weight: bold;
+    content: "\00d7";
+    text-align: center;
+    cursor: pointer;
+    color: #ccc;
+    background: white;
+    padding-bottom: 16px;
+    margin-top: -16px;
+    padding-right: 4px;
+    line-height: 1;
+}
+
+.leaflet-routing-remove-waypoint:hover {
+    color: black;
+}
+
+.leaflet-routing-instruction-distance {
+    width: 48px;
+}
+
+.leaflet-routing-collapse-btn {
+    position: absolute;
+    top: 0;
+    right: 6px;
+    font-size: 24px;
+    color: #ccc;
+    font-weight: bold;
+}
+
+.leaflet-routing-collapse-btn:after {
+    content: '\00d7';
+}
+
+.leaflet-routing-container-hide .leaflet-routing-collapse-btn {
+    position: relative;
+    left: 4px;
+    top: 4px;
+    display: block;
+    width: 26px;
+    height: 23px;
+    background-image: url(https://unpkg.com/leaflet-routing-machine@3.2.12/dist/routing-icon.png);
+}
+
+.leaflet-routing-container-hide .leaflet-routing-collapse-btn:after {
+    content: none;
+}
+
+.leaflet-top .leaflet-routing-container.leaflet-routing-container-hide {
+    margin-top: 10px !important;
+}
+.leaflet-right .leaflet-routing-container.leaflet-routing-container-hide {
+    margin-right: 10px !important;
+}
+.leaflet-bottom .leaflet-routing-container.leaflet-routing-container-hide {
+    margin-bottom: 10px !important;
+}
+.leaflet-left .leaflet-routing-container.leaflet-routing-container-hide {
+    margin-left: 10px !important;
+}
+
+@media only screen and (max-width: 640px) {
+    .leaflet-routing-container {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100%;
+        height: 100%;
+    }
+}
+
+</style>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" defer></script>
 
     <style>
-        * { font-family: 'Inter', sans-serif; }
-        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .leaflet-popup-content-wrapper { border-radius: 12px; }
+        .leaflet-container { font-family: 'Inter', sans-serif; }
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #f1f5f9; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
@@ -67,530 +991,580 @@
         const phpWeather = @json($weatherInfo ?? 'N/A');
     </script>
 </head>
-<body class="bg-slate-50 antialiased text-slate-800 selection:bg-blue-200 overflow-x-hidden">
+<body class="bg-white antialiased text-deep-900 overflow-x-hidden">
 
     @include('partials.navbar', ['active' => 'home'])
 
 
 <div id="landing-page">
+@php
+    // ===== Data ringkas untuk Beranda (semua dari database, tidak ada angka karangan) =====
+    $nodes   = collect($nodes ?? [])->map(function ($n) {
+        $n = (object) $n;
+        foreach (['status', 'status_label', 'battery', 'battery_at', 'notes', 'desa', 'node_name', 'node_code', 'lat', 'lng'] as $f) { $n->$f = $n->$f ?? null; }
+        return $n;
+    })->all();
+    $posko   = $posko ?? [];
+    $sNow    = strtoupper($current->status_ai ?? 'UNKNOWN');
+    $badgeOf = fn ($s) => match (strtoupper((string) $s)) {
+        'AMAN' => 'badge-aman', 'WASPADA' => 'badge-waspada', 'BAHAYA' => 'badge-bahaya', default => 'badge-none',
+    };
+    $labelOf = fn ($s) => match (strtoupper((string) $s)) {
+        'AMAN' => 'Aman', 'WASPADA' => 'Waspada', 'BAHAYA' => 'Bahaya', 'PENDING' => 'Menunggu analisis', default => 'Belum ada data',
+    };
+    $nodeTotal  = count($nodes);
+    $nodeOnline = collect($nodes)->whereNotIn('status', ['UNKNOWN'])->count();
+    $lastAgo    = $current?->timestamp ? \Illuminate\Support\Carbon::parse($current->timestamp)->locale('id')->diffForHumans() : null;
 
-    <div class="fixed top-0 left-0 right-0 h-[600px] bg-gradient-to-b from-blue-50 via-indigo-50/30 to-transparent -z-10 pointer-events-none"></div>
-    <div class="fixed top-20 right-[-10%] w-[500px] h-[500px] rounded-full bg-indigo-200/40 blur-3xl -z-10 pointer-events-none"></div>
-    <div class="fixed top-[40%] left-[-10%] w-[400px] h-[400px] rounded-full bg-blue-100/50 blur-3xl -z-10 pointer-events-none"></div>
+    // Grafik mini: kelembapan dangkal 24 data terakhir (skala 0-100%)
+    $spark = collect($logs ?? [])->take(-24)->values();
+    $pts   = [];
+    $n     = max($spark->count() - 1, 1);
+    foreach ($spark as $i => $row) {
+        $v = max(0, min(100, (float) ($row->soil_moisture ?? 0)));
+        $pts[] = round($i * 340 / $n, 1) . ',' . round(110 - $v, 1);
+    }
+    $polyline = implode(' ', $pts);
+    $lastPt   = end($pts) ?: null;
+    $area     = $polyline ? '0,115 ' . $polyline . ' 340,115' : '';
+    $sparkFirst = $spark->first()?->timestamp ? \Illuminate\Support\Carbon::parse($spark->first()->timestamp)->format('H:i') : '';
+@endphp
 
-
-    <div class="max-w-7xl mx-auto px-6 pb-24">
-
-        <section class="pt-20 md:pt-28 grid grid-cols-1 lg:grid-cols-12 gap-12 items-center animate-fade-up">
-         
-            <div class="lg:col-span-7 flex flex-col justify-center">
-                <div class="inline-flex items-center space-x-2 bg-blue-50 border border-blue-100 px-3.5 py-1.5 rounded-full mb-6 w-fit">
-                    <span class="flex h-2 w-2 rounded-full bg-blue-600 animate-pulse"></span>
-                    <span class="text-xs font-semibold text-blue-700 tracking-wide font-mono">EDGE AIOT · LSTM-ENSEMBLE FORECASTING · TRIASE BENCANA</span>
-                </div>
-                <h1 class="text-5xl md:text-6xl font-black tracking-tight text-slate-900 leading-tight mb-6">
-                    LARAS<br>
-                    <span class="text-blue-600">Peringatan Dini</span><br>
-                    dan Navigasi Penyelamatan Longsor
-                </h1>
-                <p class="text-lg text-slate-600 leading-relaxed mb-8 max-w-lg">
-                    Landslide Alert and Rescue Adaptive System memadukan sensor IoT multi-parameter, triase AI tiga lapis, dan komunikasi LoRa tanpa seluler untuk mempercepat peringatan dini sekaligus memandu penyelamatan warga di kawasan rawan longsor.
-                </p>
-                <div class="flex flex-wrap gap-4">
-                    <button onclick="enterDashboard()" class="group px-7 py-3.5 bg-blue-600 hover:bg-blue-700 text-white text-base font-bold rounded-2xl shadow-xl shadow-blue-200 transition-all flex items-center space-x-2.5">
-                        <span>Buka Control Center</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="group-hover:translate-x-1 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                    </button>
-                    <a href="#features" class="px-7 py-3.5 bg-white border-2 border-slate-200 hover:border-slate-300 text-slate-700 text-base font-bold rounded-2xl transition-all">
-                        Pelajari Lebih Lanjut
-                    </a>
-                </div>
-                <div class="mt-6">
-                    <span class="inline-flex items-center gap-1.5 bg-indigo-50 border border-indigo-100 text-indigo-700 text-[11px] font-bold px-3 py-1.5 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg>
-                        Lapisan digitalisasi EWS-L PVMBG — bukan pengganti sistem eksisting
-                    </span>
-                </div>
-                <div class="mt-6 flex flex-wrap gap-3">
-                    @if($current)
-                    <div class="flex items-center gap-2 bg-white/80 backdrop-blur border border-slate-200 px-3 py-1.5 rounded-full">
-                        <span class="flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                        <span class="text-xs font-semibold text-slate-600">Live Data Active</span>
-                    </div>
-                    <div class="flex items-center gap-2 bg-white/80 backdrop-blur border border-slate-200 px-3 py-1.5 rounded-full">
-                        <span class="text-xs font-mono text-slate-500">&#9729; {{ $weatherInfo['condition'] }}</span>
-                    </div>
-                    @endif
-                </div>
+    <!-- ===================== PITA STATUS ===================== -->
+    <div class="bg-air-100 border-b border-air-300/70">
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-2.5 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[12px]">
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white border border-air-300 text-teal-700 font-mono font-semibold uppercase tracking-wide text-[11px]">
+                    <span class="material-symbols-outlined text-[15px]">location_on</span> Wilayah pilot: Pacet, Mojokerto
+                </span>
+                <span class="badge {{ $badgeOf($sNow) }}">Status terkini: {{ $labelOf($sNow) }}</span>
             </div>
-            <div class="lg:col-span-5 animate-fade-up-delay-1">
-                <div class="relative flex justify-center items-center mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 200" class="w-56 md:w-64 h-auto float-hero" style="animation: float-hero 5s ease-in-out infinite;">
-                        <path d="M0 170 L90 60 L150 120 L200 40 L280 170 Z" fill="#e4eaf0"/>
-                        <path d="M0 170 L90 60 L150 120 L200 40 L280 170 Z" fill="none" stroke="#4E6A83" stroke-width="2" stroke-linejoin="round"/>
-                        <circle cx="90" cy="60" r="6" fill="#4E6A83"/>
-                        <circle cx="90" cy="60" r="12" fill="none" stroke="#4E6A83" stroke-width="2" opacity="0.5"/>
-                        <circle cx="200" cy="40" r="6" fill="#FAB44B"/>
-                        <circle cx="200" cy="40" r="12" fill="none" stroke="#FAB44B" stroke-width="2" opacity="0.5"/>
-                        <line x1="90" y1="60" x2="200" y2="40" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4 3"/>
-                        <rect x="20" y="176" width="240" height="6" rx="3" fill="#cbd5e1"/>
-                    </svg>
-                </div>
-                <div class="bg-white rounded-3xl shadow-2xl shadow-slate-200/50 border border-slate-200/60 p-6">
-                    <div class="flex items-center justify-between mb-4">
-                        <div class="flex items-center gap-2">
-                            <div class="w-2 h-2 rounded-full bg-red-400"></div>
-                            <div class="w-2 h-2 rounded-full bg-yellow-400"></div>
-                            <div class="w-2 h-2 rounded-full bg-green-400"></div>
-                        </div>
-                        <span class="text-xs font-mono text-slate-400">laras-control-center</span>
-                    </div>
-                    @if($current)
-                    <div class="@php
-                        $s = strtoupper($current->status_ai);
-                        echo ($s === 'BAHAYA') ? 'bg-rose-50 border-rose-200' : (($s === 'WASPADA') ? 'bg-yellow-50 border-yellow-200' : 'bg-emerald-50 border-emerald-200');
-                    @endphp rounded-2xl border p-4 mb-4">
-                        <p class="text-xs font-bold uppercase tracking-widest @php echo ($s === 'BAHAYA') ? 'text-rose-400' : (($s === 'WASPADA') ? 'text-yellow-500' : 'text-emerald-500'); @endphp mb-1">System Condition</p>
-                        <p class="text-2xl font-black @php echo ($s === 'BAHAYA') ? 'text-rose-700' : (($s === 'WASPADA') ? 'text-yellow-700' : 'text-emerald-700'); @endphp">
-                            @if($s === 'BAHAYA') ⚠ BAHAYA : EVAKUASI
-                            @elseif($s === 'WASPADA') ⚡ WASPADA : SIAGA
-                            @else ✓ SISTEM AMAN
-                            @endif
-                        </p>
-                    </div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                            <p class="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Moisture</p>
-                            <p class="text-xl font-bold font-mono text-slate-800">{{ number_format($current->soil_moisture, 1) }}<span class="text-xs font-normal text-slate-400">%</span></p>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                            <p class="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Vibrasi</p>
-                            <p class="text-xl font-bold font-mono text-slate-800">{{ number_format($current->vibration ?? 0, 2) }}</p>
-                        </div>
-                        <div class="bg-slate-50 rounded-xl p-3 border border-slate-200">
-                            <p class="text-[10px] text-slate-400 uppercase tracking-wide mb-1">Pitch</p>
-                            <p class="text-xl font-bold font-mono text-slate-800">{{ number_format($current->pitch ?? 0, 1) }}<span class="text-xs font-normal text-slate-400">°</span></p>
-                        </div>
-                    </div>
-                    @else
-                    <div class="text-center py-10 text-slate-400">
-                        <p class="text-sm">Belum ada data sensor</p>
-                    </div>
-                    @endif
-                </div>
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-deep-500 font-mono">
+                <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-teal-600 text-[16px]">sensors</span><strong class="text-deep-900">{{ $nodeOnline }}/{{ $nodeTotal }}</strong> node mengirim data</span>
+                <span class="hidden sm:inline-flex items-center gap-1"><span class="material-symbols-outlined text-teal-600 text-[16px]">cell_tower</span>LoRa 920 MHz</span>
+                <span class="inline-flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">schedule</span>Update: {{ $lastAgo ?? 'belum ada data' }}</span>
             </div>
-        </section>
-
-        <section id="urgensi" class="mt-24">
-            <div class="bg-gradient-to-br from-slate-900 to-indigo-950 rounded-3xl p-8 md:p-10 text-white">
-                <div class="flex items-center gap-2 mb-5">
-                    <span class="flex h-2 w-2 rounded-full bg-rose-400 animate-pulse"></span>
-                    <span class="text-xs font-bold uppercase tracking-widest text-rose-300 font-mono">Urgensi</span>
-                </div>
-                <h2 class="text-2xl md:text-3xl font-black mb-6 max-w-2xl">Kejadian dan korban terdampak longsor meningkat tajam dalam setahun terakhir</h2>
-                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    <div class="stat-card bg-white/10 border border-white/10 rounded-2xl p-5">
-                        <p class="text-[11px] uppercase tracking-widest text-indigo-200 font-bold mb-2">Kejadian Tanah Longsor</p>
-                        <div class="flex items-end gap-3">
-                            <span class="text-4xl font-black">330</span>
-                            <span class="text-sm text-indigo-200 mb-1">kejadian (2025)</span>
-                        </div>
-                        <p class="text-xs text-indigo-300 mt-1 font-mono">vs 184 kejadian pada 2024</p>
-                    </div>
-                    <div class="stat-card bg-white/10 border border-white/10 rounded-2xl p-5">
-                        <p class="text-[11px] uppercase tracking-widest text-indigo-200 font-bold mb-2">Korban Terdampak</p>
-                        <div class="flex items-end gap-3">
-                            <span class="text-4xl font-black">68.935</span>
-                            <span class="text-sm text-indigo-200 mb-1">jiwa (2025)</span>
-                        </div>
-                        <p class="text-xs text-indigo-300 mt-1 font-mono">vs 48.344 jiwa pada 2024</p>
-                    </div>
-                </div>
-                <p class="text-sm text-indigo-100 leading-relaxed max-w-2xl">
-                    Sistem peringatan dini longsor (EWS-L) yang ada saat ini masih sangat bergantung pada pembacaan manual oleh kader di lapangan, sehingga rentan terjadi jeda waktu peringatan — terutama pada malam hari atau saat akses lapangan terganggu cuaca buruk. LARAS dikembangkan sebagai lapisan digitalisasi tambahan untuk mempersempit jeda tersebut.
-                </p>
-                <p class="text-[11px] text-indigo-300 mt-4 font-mono">Sumber: BNPB, 2025</p>
-            </div>
-        </section>
-
-        <section id="features" class="mt-24 animate-fade-up-delay-2">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-blue-600 font-mono">Kemampuan Sistem</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Deteksi, Triase, dan Penyelamatan</h2>
-                <p class="text-slate-500 mt-3 max-w-md mx-auto">Rantai kemampuan LARAS dari sensor di lapangan sampai navigasi penyelamatan warga.</p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4E6A83" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-                    </div>
-                    <h3 class="font-bold text-slate-900 mb-2">Sensor IoT Multi-Kedalaman</h3>
-                    <p class="text-sm text-slate-500 leading-relaxed">Kelembapan tanah 2 kedalaman (dangkal &amp; dalam), MPU6050 dengan filter komplementer untuk pitch/roll, dan rain gauge tipping bucket.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="w-12 h-12 bg-purple-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#4C3625" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>
-                    </div>
-                    <h3 class="font-bold text-slate-900 mb-2">AI Triase 3 Lapis</h3>
-                    <p class="text-sm text-slate-500 leading-relaxed">LSTM-Ensemble Forecasting + verifikasi silang Random Forest + ambang batas fisik intensitas-durasi hujan sebagai jaring pengaman.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="w-12 h-12 bg-sun-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FAB44B" stroke-width="2"><circle cx="6" cy="18" r="2.2"/><circle cx="18" cy="6" r="2.2"/><circle cx="12" cy="12" r="2.2"/><path d="M8 16.5L10.5 13.5M13.5 10.5L16 7.5"/></svg>
-                    </div>
-                    <h3 class="font-bold text-slate-900 mb-2">Komunikasi Tanpa Seluler</h3>
-                    <p class="text-sm text-slate-500 leading-relaxed">LoRa mesh ke gateway, dirancang untuk wilayah rawan longsor yang akses selulernya sering terputus.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                    <div class="w-12 h-12 bg-rose-50 rounded-xl flex items-center justify-center mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#e11d48" stroke-width="2"><path d="M12 2C8 6 5 9.5 5 13a7 7 0 0014 0c0-3.5-3-7-7-11z"/><path d="M9 13l2 2 4-4" stroke="#e11d48"/></svg>
-                    </div>
-                    <h3 class="font-bold text-slate-900 mb-2">Navigasi Penyelamatan</h3>
-                    <p class="text-sm text-slate-500 leading-relaxed">Rute evakuasi tervalidasi, tombol SOS, dan fitur check-in warga di titik kumpul. <span class="text-amber-600 font-semibold">(Roadmap)</span></p>
-                </div>
-            </div>
-        </section>
-
-        <section id="algorithms" class="mt-24">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-purple-600 font-mono">Teknologi Inti</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Arsitektur Triase AI 3 Lapis</h2>
-                <p class="text-slate-500 mt-3 max-w-lg mx-auto">Tiga lapisan yang saling mengoreksi, ditutup dengan verifikasi manusia sebelum status Bahaya disebarluaskan.</p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-7 text-white shadow-xl shadow-blue-200">
-                    <div class="flex items-center gap-3 mb-4 flex-wrap">
-                        <span class="text-xs font-bold uppercase tracking-widest text-blue-200 font-mono bg-white/10 px-2 py-1 rounded-md">Layer 1</span>
-                        <h3 class="text-lg font-black">LSTM-Ensemble Forecasting</h3>
-                    </div>
-                    <p class="text-blue-100 text-sm leading-relaxed mb-4">Ensemble LSTM dengan Monte Carlo Dropout untuk mengestimasi ketidakpastian prediksi. Window 60 langkah (5 menit) memproyeksikan horizon 120 langkah (10 menit) ke depan.</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-white/10 rounded-xl p-3">
-                            <p class="text-xs text-blue-200">Window / Horizon</p>
-                            <p class="text-sm font-bold font-mono">60 / 120 step</p>
-                        </div>
-                        <div class="bg-white/10 rounded-xl p-3">
-                            <p class="text-xs text-blue-200">Keluaran</p>
-                            <p class="text-[11px] font-bold font-mono leading-tight">Moisture dangkal, dalam, pitch</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gradient-to-br from-olive-600 to-olive-800 rounded-2xl p-7 text-white shadow-xl shadow-olive-200">
-                    <div class="flex items-center gap-3 mb-4 flex-wrap">
-                        <span class="text-xs font-bold uppercase tracking-widest text-emerald-200 font-mono bg-white/10 px-2 py-1 rounded-md">Layer 2</span>
-                        <h3 class="text-lg font-black">Verifikasi Silang Random Forest</h3>
-                    </div>
-                    <p class="text-emerald-100 text-sm leading-relaxed mb-4">Mengklasifikasikan status AMAN / WASPADA / BAHAYA secara independen. Jika hasil RF dan LSTM tidak sepakat, sistem otomatis menetapkan status sementara WASPADA.</p>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-white/10 rounded-xl p-3">
-                            <p class="text-xs text-emerald-200">N-Estimators</p>
-                            <p class="text-lg font-bold font-mono">100</p>
-                        </div>
-                        <div class="bg-white/10 rounded-xl p-3">
-                            <p class="text-xs text-emerald-200">Fungsi</p>
-                            <p class="text-[11px] font-bold font-mono leading-tight">Cross-check LSTM</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-gradient-to-br from-sun-600 to-sun-800 rounded-2xl p-7 text-white shadow-xl shadow-sun-200">
-                    <div class="flex items-center gap-3 mb-4 flex-wrap">
-                        <span class="text-xs font-bold uppercase tracking-widest text-amber-200 font-mono bg-white/10 px-2 py-1 rounded-md">Layer 3</span>
-                        <h3 class="text-lg font-black">Ambang Fisik Curah Hujan</h3>
-                    </div>
-                    <p class="text-amber-100 text-sm leading-relaxed mb-4">Kurva ambang batas intensitas-durasi hujan tervalidasi literatur (Segoni dkk., 2018), berfungsi sebagai jaring pengaman yang independen dari performa model AI.</p>
-                    <div class="grid grid-cols-1 gap-3">
-                        <div class="bg-white/10 rounded-xl p-3">
-                            <p class="text-xs text-amber-200">Basis</p>
-                            <p class="text-[11px] font-bold font-mono leading-tight">Kurva Intensitas–Durasi (I-D)</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="mt-6 bg-slate-900 rounded-2xl p-6 md:p-7 flex flex-col md:flex-row items-start md:items-center gap-5">
-                <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center flex-shrink-0">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#a5b4fc" stroke-width="2"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-                </div>
-                <div>
-                    <p class="text-xs font-bold uppercase tracking-widest text-indigo-300 font-mono mb-1">Human in the Loop</p>
-                    <p class="text-white text-sm leading-relaxed">Setiap status <strong>BAHAYA</strong> tidak langsung disebarluaskan ke warga. Notifikasi awal terlebih dahulu dikirim ke kader terlatih untuk verifikasi lapangan, memastikan akuntabilitas keputusan tidak diserahkan sepenuhnya kepada AI.</p>
-                </div>
-            </div>
-        </section>
-
-        <section id="cara-kerja" class="mt-24">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-blue-600 font-mono">Alur Sistem</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Cara Kerja LARAS</h2>
-                <p class="text-slate-500 mt-3 max-w-lg mx-auto">Dari sensor di lereng sampai notifikasi dan navigasi penyelamatan ke warga.</p>
-            </div>
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-                @php
-                $flow = [
-                    ['label' => 'Sensor Unit', 'desc' => 'Moisture, IMU, rain gauge di lereng', 'color' => 'blue'],
-                    ['label' => 'LoRa Mesh', 'desc' => 'Transmisi tanpa seluler', 'color' => 'indigo'],
-                    ['label' => 'Gateway / MQTT', 'desc' => 'Broker penerima data', 'color' => 'purple'],
-                    ['label' => 'PostgreSQL + Edge Pi', 'desc' => 'Arsip data & inferensi model', 'color' => 'violet'],
-                    ['label' => 'Klasifikasi Status', 'desc' => 'AMAN / WASPADA / BAHAYA', 'color' => 'amber'],
-                    ['label' => 'Notifikasi & Navigasi', 'desc' => 'Telegram/SMS/sirine + rute evakuasi', 'color' => 'rose'],
-                ];
-                @endphp
-                @foreach($flow as $i => $f)
-                <div class="relative bg-white rounded-2xl p-4 border border-slate-200 shadow-sm text-center">
-                    <div class="w-8 h-8 mx-auto rounded-full bg-{{ $f['color'] }}-100 text-{{ $f['color'] }}-700 flex items-center justify-center font-black text-xs mb-3">{{ $i + 1 }}</div>
-                    <p class="font-bold text-slate-900 text-xs mb-1">{{ $f['label'] }}</p>
-                    <p class="text-[10px] text-slate-500 leading-snug">{{ $f['desc'] }}</p>
-                </div>
-                @endforeach
-            </div>
-        </section>
-
-        <section id="status-purwarupa" class="mt-24">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-slate-600 font-mono">Transparansi</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Status Purwarupa</h2>
-                <p class="text-slate-500 mt-3 max-w-xl mx-auto">LARAS terbuka soal komponen mana yang sudah teruji lapangan dan mana yang masih dalam rencana pengadaan.</p>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-                <div class="bg-white rounded-2xl p-6 border border-emerald-200 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-                        <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">Sudah Terealisasi &amp; Teruji Lapangan</h3>
-                    </div>
-                    <ul class="space-y-2 text-sm text-slate-600">
-                        <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span>Mikrokontroler ESP32</li>
-                        <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span>Probe kelembapan tanah dangkal (LM393)</li>
-                        <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span>Accelerometer/gyroscope MPU6050</li>
-                        <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span>Baterai Li-ion + BMS</li>
-                        <li class="flex items-start gap-2"><span class="text-emerald-500 mt-0.5">✓</span>Casing hasil cetak 3D</li>
-                    </ul>
-                </div>
-                <div class="bg-white rounded-2xl p-6 border border-amber-200 shadow-sm">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-                        <h3 class="font-bold text-slate-900 text-sm uppercase tracking-wide">Rencana Pengadaan / Belum Diuji Lapangan</h3>
-                    </div>
-                    <ul class="space-y-2 text-sm text-slate-600">
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">○</span>Probe kelembapan tanah dalam (LM393)</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">○</span>Rain gauge tipping bucket</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">○</span>Modul komunikasi LoRa</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">○</span>Panel surya</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">○</span>Sistem penjangkaran mekanis</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">○</span>Modul navigasi penyelamatan</li>
-                    </ul>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 mb-8">
-                <div class="bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl p-6 text-white text-center">
-                    <p class="text-xs uppercase tracking-widest text-blue-200 font-bold mb-2">MAE Moisture Turun</p>
-                    <p class="text-4xl font-black">11,3%</p>
-                    <p class="text-xs text-blue-200 mt-1">dibanding baseline persistence</p>
-                </div>
-                <div class="bg-gradient-to-br from-purple-600 to-fuchsia-700 rounded-2xl p-6 text-white text-center">
-                    <p class="text-xs uppercase tracking-widest text-purple-200 font-bold mb-2">MAE Pitch Turun</p>
-                    <p class="text-4xl font-black">24,8%</p>
-                    <p class="text-xs text-purple-200 mt-1">dibanding baseline persistence</p>
-                </div>
-            </div>
-            <p class="text-center text-xs text-slate-400 font-mono">Evaluasi dari 852 baris data mentah / 765 baris bersih dari 13 sesi pengamatan lapangan.</p>
-        </section>
-
-        <section id="developers" class="mt-24">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-rose-600 font-mono">Developers</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Developer Team</h2>
-            </div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                @php
-                $devs = [
-                    [
-                        'name' => 'Devi Putri Sekar Arum',
-                        'nim' => '5024241049',
-                        'role' => 'Machine Learning & AI Engineer',
-        
-                        'letter' => 'D',
-                        'gradient' => 'from-noir-400 to-noir-700'
-                    ],
-                    [
-                        'name' => 'Athaya Khairani Adi',
-                        'nim' => '5024241007',
-                        'role' => 'Web Developer & Software Engineer',
-                        
-                        'letter' => 'A',
-                        'gradient' => 'from-olive-500 to-olive-700'
-                    ],
-                     [
-                        'name' => 'Atika Najwa Azzahra',
-                        'nim' => '5024241091',
-                        'role' => 'Hardware Engineer & Prototype Designer',
-                        'letter' => 'A',
-                        'gradient' => 'from-sky-400 to-blue-600'
-                    ],
-                    [
-                        'name' => 'Ir. Arta Kusuma Hernanda, S.T., M.T.',
-                        'nim' => 'Dosen Pembimbing',
-                        'role' => 'Pembimbing Tim Bismillah Medalis',
-                        'letter' => 'A',
-                        'gradient' => 'from-slate-500 to-slate-700'
-                    ],
-                ];
-                @endphp
-                @foreach($devs as $dev)
-                <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm text-center hover:shadow-md transition-shadow">
-                    <div class="w-14 h-14 rounded-2xl bg-gradient-to-br {{ $dev['gradient'] }} flex items-center justify-center mx-auto mb-4 shadow-lg">
-                        <span class="text-white font-black text-xl">{{ $dev['letter'] }}</span>
-                    </div>
-
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">
-                        {{ $dev['name'] }}
-                    </h4>
-
-                    <p class="text-xs font-mono text-slate-400 mb-2">
-                        {{ $dev['nim'] }}
-                    </p>
-
-                    <p class="text-xs text-slate-500 leading-relaxed">
-                        {{ $dev['role'] }}
-                    </p>
-
-                    @if(isset($dev['extra_role']))
-                        <p class="text-xs text-slate-500 leading-relaxed">
-                            {{ $dev['extra_role'] }}
-                        </p>
-                    @endif
-                </div>
-                @endforeach
-            </div>
-
-           
-        </section>
-
-        <section id="edukasi" class="mt-24">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-emerald-600 font-mono">Edukasi Kebencanaan</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Tanda-Tanda dan Penanganan Longsor</h2>
-                <p class="text-slate-500 mt-3 max-w-xl mx-auto">Konten edukasi umum kebencanaan longsor. Karakteristik tiap wilayah bisa berbeda — validasikan dengan BPBD/kader setempat.</p>
-            </div>
-
-            <div class="space-y-4 max-w-3xl mx-auto">
-                <details class="edu-accordion bg-white rounded-2xl border border-slate-200 shadow-sm p-5" open>
-                    <summary class="flex items-center justify-between font-bold text-slate-900">
-                        <span class="flex items-center gap-2"><span class="text-lg"></span> A. Kenali Tanda-Tanda Awal</span>
-                        <svg class="chev transition-transform" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-                    </summary>
-                    <ul class="mt-4 space-y-2.5 text-sm text-slate-600 pl-1">
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">●</span>Muncul retakan baru di tanah atau tembok, terutama sejajar lereng.</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">●</span>Air rembesan atau mata air baru muncul di lereng, atau air sumur tiba-tiba keruh.</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">●</span>Pohon, tiang listrik, atau pagar mulai miring ke satu arah.</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">●</span>Muncul suara gemuruh dari arah lereng, terutama saat/setelah hujan deras berkepanjangan.</li>
-                        <li class="flex items-start gap-2"><span class="text-amber-500 mt-0.5">●</span>Pintu atau jendela rumah di lereng tiba-tiba sulit dibuka/ditutup (indikasi pergeseran struktur tanah).</li>
-                    </ul>
-                </details>
-
-                <details class="edu-accordion bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <summary class="flex items-center justify-between font-bold text-slate-900">
-                        <span class="flex items-center gap-2"><span class="text-lg"></span> B. Sebelum Terjadi (Kesiapsiagaan)</span>
-                        <svg class="chev transition-transform" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-                    </summary>
-                    <ul class="mt-4 space-y-2.5 text-sm text-slate-600 pl-1">
-                        <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">●</span>Kenali rute evakuasi dan titik kumpul terdekat (nanti dapat ditautkan ke modul navigasi LARAS).</li>
-                        <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">●</span>Siapkan tas siaga bencana: dokumen penting, senter, obat-obatan, air minum, uang tunai secukupnya.</li>
-                        <li class="flex items-start gap-2"><span class="text-blue-500 mt-0.5">●</span>Pantau status LARAS dan informasi BMKG secara berkala saat musim hujan.</li>
-                    </ul>
-                </details>
-
-                <details class="edu-accordion bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-                    <summary class="flex items-center justify-between font-bold text-slate-900">
-                        <span class="flex items-center gap-2"><span class="text-lg"></span> C. Saat dan Setelah Kejadian</span>
-                        <svg class="chev transition-transform" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
-                    </summary>
-                    <ul class="mt-4 space-y-2.5 text-sm text-slate-600 pl-1">
-                        <li class="flex items-start gap-2"><span class="text-rose-500 mt-0.5">●</span>Saat status Bahaya, segera menuju titik kumpul lewat rute yang sudah divalidasi, jangan mengambil jalan pintas yang belum dikonfirmasi aman.</li>
-                        <li class="flex items-start gap-2"><span class="text-rose-500 mt-0.5">●</span>Bantu prioritaskan lansia, anak-anak, dan penyandang disabilitas terlebih dulu.</li>
-                        <li class="flex items-start gap-2"><span class="text-rose-500 mt-0.5">●</span>Setelah tiba di titik kumpul, lakukan check-in (lewat aplikasi atau tombol fisik) supaya tim SAR tahu siapa saja yang sudah aman.</li>
-                        <li class="flex items-start gap-2"><span class="text-rose-500 mt-0.5">●</span>Jangan kembali ke rumah/lokasi terdampak sebelum ada pernyataan aman resmi dari petugas BPBD/kader setempat.</li>
-                    </ul>
-                </details>
-            </div>
-        </section>
-
-        <section id="kontak-darurat" class="mt-24">
-            <div class="text-center mb-14">
-                <span class="text-xs font-bold uppercase tracking-widest text-rose-600 font-mono">Darurat</span>
-                <h2 class="text-4xl font-black text-slate-900 mt-2">Kontak Darurat</h2>
-                <p class="text-slate-500 mt-3 max-w-xl mx-auto">Nomor penting per Juli 2026. LARAS adalah alat bantu, bukan pengganti prosedur resmi — tetap ikuti arahan kader/petugas setempat.</p>
-            </div>
-
-            <div class="text-center mb-8">
-                <a href="tel:112" class="inline-flex items-center gap-3 px-8 py-4 bg-rose-600 hover:bg-rose-700 text-white font-black text-lg rounded-2xl shadow-xl shadow-rose-200 transition-all">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                    Hubungi 112
-                </a>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 max-w-4xl mx-auto">
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <p class="text-3xl font-black text-rose-600 font-mono mb-2">112</p>
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">Nomor Tunggal Panggilan Darurat</h4>
-                    <p class="text-xs text-slate-500 leading-relaxed">Gratis, tersambung ke BPBD/Damkar/Polisi/Kesehatan di wilayah yang sudah terlayani, bisa dihubungi meski HP terkunci.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <p class="text-3xl font-black text-blue-600 font-mono mb-2">117</p>
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">BNPB</h4>
-                    <p class="text-xs text-slate-500 leading-relaxed">Info dan koordinasi penanganan bencana skala nasional.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <p class="text-3xl font-black text-emerald-600 font-mono mb-2">115</p>
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">Basarnas</h4>
-                    <p class="text-xs text-slate-500 leading-relaxed">Kebutuhan pencarian dan evakuasi (SAR) korban.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-5 border border-dashed border-slate-300 shadow-sm">
-                    <p class="text-lg font-black text-slate-400 font-mono mb-2">(031) 99860466</p>
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">BPBD Setempat</h4>
-                    <p class="text-xs text-slate-500 leading-relaxed">Nomor BPBD kabupaten/kota tempat purwarupa/pilot LARAS dipasang.</p>
-                </div>
-                <div class="bg-white rounded-2xl p-5 border border-dashed border-slate-300 shadow-sm">
-                    <p class="text-lg font-black text-slate-400 font-mono mb-2">menyusul</p>
-                    <h4 class="font-bold text-slate-900 text-sm mb-1">Kader / Posko Desa Terdekat</h4>
-                    <p class="text-xs text-slate-500 leading-relaxed">Nomor kader EWS-L atau posko desa mitra.</p>
-                </div>
-            </div>
-            <p class="text-center text-xs text-slate-400 mt-8 max-w-lg mx-auto">Catatan: saat darurat sungguhan, warga tetap harus mengikuti arahan kader/petugas resmi setempat. LARAS adalah alat bantu, bukan pengganti prosedur resmi.</p>
-        </section>
-
-        <section class="mt-24 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-3xl p-12 text-center shadow-2xl shadow-blue-200">
-            <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-20 h-20 rounded-2xl object-cover mx-auto mb-5 shadow-xl border-2 border-white/20">
-            <h2 class="text-3xl font-black text-white mb-4">Siap Memantau?</h2>
-            <p class="text-blue-100 mb-8 max-w-md mx-auto">Akses dashboard real-time LARAS untuk melihat kondisi sensor terkini dan riwayat telemetri lengkap.</p>
-            <div class="flex flex-wrap justify-center gap-3">
-                <button onclick="enterDashboard()" class="group px-8 py-4 bg-white text-blue-700 font-black text-base rounded-2xl shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-3">
-                    <span>Buka Live Dashboard</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="group-hover:translate-x-1 transition-transform"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                </button>
-                <a href="#edukasi" class="px-8 py-4 bg-white/10 border-2 border-white/30 hover:bg-white/20 text-white font-black text-base rounded-2xl transition-all">
-                    Baca Edukasi Kebencanaan
-                </a>
-            </div>
-        </section>
+        </div>
     </div>
 
-    <footer class="border-t border-slate-200 mt-20">
-        <div class="max-w-7xl mx-auto px-6 py-10 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-center gap-3">
-                <img src="/images/logo_laras.png" alt="LARAS Logo" class="w-9 h-9 rounded-lg object-cover">
-                <div>
-                    <p class="text-sm font-bold text-slate-900 leading-none">LARAS</p>
-                    <p class="text-[10px] text-slate-400 mt-0.5">Institut Teknologi Sepuluh Nopember · Departemen Teknik Komputer</p>
+    <!-- ===================== HERO ===================== -->
+    <section id="beranda" class="air-gradient">
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-12 pb-16 lg:pt-16 lg:pb-20 grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-12 items-center">
+            <div class="lg:col-span-7 flex flex-col gap-5 animate-fade-up">
+                <span class="chip-outline self-start"><span class="material-symbols-outlined text-[16px]">neurology</span> Inovasi Edge AIoT Mitigasi Longsor · ITS</span>
+                <h1 class="text-[2rem] leading-[1.15] sm:text-[2.6rem] lg:text-[3rem] lg:leading-[1.1] font-extrabold text-deep-900 tracking-tight">
+                    Peringatan Dini &amp; Navigasi Penyelamatan <span class="text-teal-600">Longsor</span> Berbasis Sensor Cerdas
+                </h1>
+                <p class="text-[16px] sm:text-[17px] leading-relaxed text-deep-600 max-w-[60ch]">
+                    LARAS memantau kelembapan tanah dua kedalaman, curah hujan, dan pergerakan lereng secara langsung, memprediksi status lereng hingga 60 menit ke depan, lalu memandu warga menuju posko evakuasi terdekat.
+                </p>
+                <div class="flex flex-wrap items-center gap-3 pt-1">
+                    <button onclick="enterDashboard()" class="group inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-semibold font-heading shadow-md shadow-teal-500/20 transition">
+                        Buka Live Monitoring
+                        <span class="material-symbols-outlined text-[20px] group-hover:translate-x-0.5 transition-transform">arrow_forward</span>
+                    </button>
+                    <a href="{{ route('peta-evakuasi.index') }}" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white border border-air-300 hover:bg-air-100 text-deep-900 font-semibold font-heading transition">
+                        <span class="material-symbols-outlined text-[20px] text-teal-600">map</span> Lihat Peta Evakuasi
+                    </a>
+                </div>
+                <div class="info-note p-4 flex flex-col gap-1 max-w-[60ch] mt-1">
+                    <span class="text-[12px] font-mono font-semibold uppercase tracking-wider text-teal-700">Jaringan mandiri tanpa sinyal seluler</span>
+                    <p class="text-[14px] leading-relaxed text-deep-700">Node sensor saling meneruskan data lewat LoRa mesh 920 MHz ke gateway Raspberry Pi di posko. Analisis AI berjalan langsung di gateway, sehingga peringatan tetap keluar walau internet putus.</p>
                 </div>
             </div>
-            <a href="tel:112" class="text-xs font-bold text-rose-600 flex items-center gap-1.5">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 16.92v3a2 2 0 01-2.18 2 19.79 19.79 0 01-8.63-3.07 19.5 19.5 0 01-6-6 19.79 19.79 0 01-3.07-8.67A2 2 0 014.11 2h3a2 2 0 012 1.72c.127.96.361 1.903.7 2.81a2 2 0 01-.45 2.11L8.09 9.91a16 16 0 006 6l1.27-1.27a2 2 0 012.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0122 16.92z"/></svg>
-                Darurat: 112
-            </a>
+
+            <!-- Kartu telemetri langsung (data asli dari database) -->
+            <div class="lg:col-span-5 animate-fade-up-delay-1">
+                <div class="card shadow-lift p-5 sm:p-6 flex flex-col gap-4 relative overflow-hidden">
+                    <div class="absolute -top-14 -right-14 w-40 h-40 bg-air-200/60 rounded-full blur-2xl pointer-events-none"></div>
+                    <div class="relative flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <span class="w-10 h-10 rounded-lg bg-air-100 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined">ssid_chart</span></span>
+                            <div>
+                                <p class="text-[10px] font-mono font-semibold uppercase tracking-wider text-deep-400">Telemetri terbaru</p>
+                                <p class="text-[17px] font-bold font-heading text-deep-900 leading-tight">Kelembapan Tanah</p>
+                            </div>
+                        </div>
+                        <span class="badge {{ $badgeOf($sNow) }}">{{ $labelOf($sNow) }}</span>
+                    </div>
+
+                    <div class="relative bg-air-50 border border-air-200 rounded-lg p-3">
+                        <div class="flex items-center justify-between text-[11px] font-mono text-deep-400 mb-1">
+                            <span class="inline-flex items-center gap-1.5"><span class="w-3 h-1 rounded-full bg-teal-500"></span>Dangkal, {{ $spark->count() }} data terakhir</span>
+                            <span class="inline-flex items-center gap-1.5"><span class="w-3 border-t border-dashed border-cream-600"></span>Waspada 55%</span>
+                        </div>
+                        @if($polyline)
+                        <svg viewBox="0 0 340 120" preserveAspectRatio="none" class="w-full h-32 overflow-visible" role="img" aria-label="Grafik kelembapan tanah dangkal">
+                            <defs><linearGradient id="sparkFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#008080" stop-opacity=".25"/><stop offset="100%" stop-color="#008080" stop-opacity="0"/></linearGradient></defs>
+                            <line x1="0" x2="340" y1="35" y2="35" stroke="#BFE3F2" stroke-dasharray="3 3"/>
+                            <line x1="0" x2="340" y1="110" y2="110" stroke="#BFE3F2"/>
+                            <line x1="0" x2="340" y1="55" y2="55" stroke="#D68F14" stroke-dasharray="5 3" stroke-width="1.2"/>
+                            <polygon points="{{ $area }}" fill="url(#sparkFill)"/>
+                            <polyline points="{{ $polyline }}" fill="none" stroke="#008080" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>
+                            @if($lastPt)
+                                @php [$lx, $ly] = explode(',', $lastPt); @endphp
+                                <circle cx="{{ $lx }}" cy="{{ $ly }}" r="8" fill="#008080" fill-opacity=".18"/>
+                                <circle cx="{{ $lx }}" cy="{{ $ly }}" r="4.5" fill="#008080"/>
+                            @endif
+                        </svg>
+                        <div class="flex justify-between text-[10px] font-mono text-deep-400 mt-1"><span>{{ $sparkFirst }}</span><span class="text-teal-600 font-semibold">Terbaru</span></div>
+                        @else
+                        <div class="h-32 flex items-center justify-center text-[13px] text-deep-400">Belum ada data sensor</div>
+                        @endif
+                    </div>
+
+                    <div class="relative grid grid-cols-2 gap-2.5">
+                        @php
+                            $mini = [
+                                ['water_drop', 'Kelembapan dangkal', $current ? number_format($current->soil_moisture ?? 0, 1) : '–', '%'],
+                                ['layers', 'Kelembapan dalam', $current ? number_format($current->moisture_percent_deep ?? 0, 1) : '–', '%'],
+                                ['rainy', 'Curah hujan', $current ? number_format($current->rainfall_mm ?? 0, 1) : '–', 'mm/jam'],
+                                ['battery_5_bar', 'Baterai node', ($current && $current->battery_percent !== null) ? (int) $current->battery_percent : '–', '%'],
+                            ];
+                        @endphp
+                        @foreach($mini as [$ic, $lb, $val, $unit])
+                        <div class="rounded-lg bg-air-100/70 border border-air-200 p-3">
+                            <p class="text-[11px] text-deep-500 flex items-center gap-1"><span class="material-symbols-outlined text-[15px] text-teal-600">{{ $ic }}</span>{{ $lb }}</p>
+                            <p class="mt-1 font-mono text-[20px] font-bold text-deep-900 leading-none">{{ $val }}<span class="text-[11px] font-normal text-deep-400 ml-1">{{ $unit }}</span></p>
+                        </div>
+                        @endforeach
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== PITA ANGKA (URGENSI & KEMAMPUAN) ===================== -->
+    <section id="urgensi" class="max-w-[1200px] mx-auto px-4 sm:px-6 -mt-6 relative z-10">
+        <span id="features" class="sr-only"></span>
+        <div class="rounded-2xl bg-deep-900 text-white shadow-float p-6 sm:p-8">
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-6 lg:divide-x lg:divide-white/10">
+                <div class="lg:pr-6">
+                    <p class="font-heading font-extrabold text-[2.2rem] sm:text-[2.6rem] leading-none text-cream-200">330</p>
+                    <p class="mt-2 text-[14px] font-semibold">Kejadian longsor 2025</p>
+                    <p class="text-[12px] text-deep-200 mt-0.5">naik dari 184 kejadian pada 2024</p>
+                </div>
+                <div class="lg:px-6">
+                    <p class="font-heading font-extrabold text-[2.2rem] sm:text-[2.6rem] leading-none text-cream-200">68.935</p>
+                    <p class="mt-2 text-[14px] font-semibold">Jiwa terdampak 2025</p>
+                    <p class="text-[12px] text-deep-200 mt-0.5">naik dari 48.344 jiwa pada 2024</p>
+                </div>
+                <div class="lg:px-6">
+                    <p class="font-heading font-extrabold text-[2.2rem] sm:text-[2.6rem] leading-none text-teal-300">+60<span class="text-[1rem] font-bold ml-1">menit</span></p>
+                    <p class="mt-2 text-[14px] font-semibold">Prediksi status lereng</p>
+                    <p class="text-[12px] text-deep-200 mt-0.5">peringatan sebelum kondisi kritis</p>
+                </div>
+                <div class="lg:pl-6">
+                    <p class="font-heading font-extrabold text-[2.2rem] sm:text-[2.6rem] leading-none text-teal-300">920<span class="text-[1rem] font-bold ml-1">MHz</span></p>
+                    <p class="mt-2 text-[14px] font-semibold">LoRa mesh mandiri</p>
+                    <p class="text-[12px] text-deep-200 mt-0.5">tidak bergantung sinyal seluler</p>
+                </div>
+            </div>
+            <p class="mt-6 pt-4 border-t border-white/10 text-[12px] text-deep-200 leading-relaxed">
+                EWS-L yang ada masih banyak bergantung pada pembacaan manual kader, sehingga rawan jeda peringatan saat malam atau cuaca buruk. LARAS hadir sebagai lapisan digitalisasi tambahan, bukan pengganti sistem eksisting. <span class="font-mono text-deep-300">Sumber data kejadian: BNPB, 2025.</span>
+            </p>
+        </div>
+    </section>
+
+    <!-- ===================== STATUS NODE ===================== -->
+    <section id="pantauan" class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-20">
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-4 mb-8">
+            <div>
+                <span class="section-tag">Telemetri real-time</span>
+                <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Status Node Sensor di Lereng Pantauan</h2>
+                <p class="mt-1 text-[15px] text-deep-500">Status terbaru tiap node dari hasil analisis AI di gateway.</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="hidden sm:inline-flex items-center gap-1.5 text-[12px] font-mono text-deep-500"><span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse"></span>Diperbarui otomatis</span>
+                <button onclick="enterDashboard()" class="px-3.5 py-2 rounded-lg bg-white border border-air-300 hover:bg-air-100 text-[13px] font-semibold text-teal-700 transition">Detail telemetri</button>
+            </div>
+        </div>
+
+        @if($nodeTotal)
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            @foreach(array_slice($nodes, 0, 4) as $node)
+                @php
+                    // aman walau EvacuationMapController versi lama (tanpa status_label / baterai)
+                    $st  = strtoupper($node->status ?? 'UNKNOWN');
+                    $node->status_label = $node->status_label ?? $labelOf($st);
+                    foreach (['battery', 'battery_at', 'notes', 'desa', 'node_name'] as $f) { $node->$f = $node->$f ?? null; }
+                    $warn = in_array($st, ['WASPADA', 'BAHAYA'], true);
+                    $bat = $node->battery;
+                    $batColor = $bat === null ? 'bg-slate-300' : ($bat < 20 ? 'bg-rose-500' : ($bat < 50 ? 'bg-amber-500' : 'bg-emerald-500'));
+                @endphp
+                <div class="card card-accent p-5 flex flex-col gap-3 {{ $st === 'BAHAYA' ? '!border-rose-300 bg-rose-50/40' : ($st === 'WASPADA' ? '!border-amber-300 bg-amber-50/40' : '') }}">
+                    <div class="flex items-center justify-between gap-2">
+                        <span class="text-[11px] font-mono font-semibold uppercase tracking-wider {{ $warn ? 'text-amber-700' : 'text-deep-400' }}">{{ $node->node_code }}</span>
+                        <span class="badge {{ $badgeOf($st) }}">{{ $node->status_label }}</span>
+                    </div>
+                    <div>
+                        <h3 class="text-[17px] font-bold text-deep-900 leading-snug">{{ $node->node_name ?: $node->node_code }}</h3>
+                        <p class="text-[13px] text-deep-500 mt-0.5">{{ $node->desa ?: 'Lokasi belum diisi' }}</p>
+                    </div>
+                    @if($node->notes)
+                        <p class="text-[13px] text-deep-600 leading-relaxed line-clamp-2">{{ $node->notes }}</p>
+                    @endif
+                    <div class="mt-auto pt-3 border-t border-air-200">
+                        <div class="flex items-center justify-between text-[12px] font-mono">
+                            <span class="text-deep-500 inline-flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">battery_horiz_075</span>Baterai</span>
+                            <span class="font-semibold text-deep-900">{{ $bat === null ? '–' : $bat . '%' }}</span>
+                        </div>
+                        <div class="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full {{ $batColor }}" style="width: {{ $bat === null ? 0 : max(3, min(100, $bat)) }}%"></div></div>
+                        <p class="mt-1.5 text-[11px] text-deep-400">{{ $node->battery_at ? 'Update ' . $node->battery_at : 'Belum ada kiriman data' }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+        @if($nodeTotal > 4)
+            <p class="mt-4 text-[13px] text-deep-500">Menampilkan 4 dari {{ $nodeTotal }} node. <a href="{{ route('peta-evakuasi.index') }}" class="font-semibold text-teal-600 hover:underline">Lihat semua di Peta Evakuasi →</a></p>
+        @endif
+        @else
+        <div class="card p-8 text-center text-deep-500">Belum ada node sensor terdaftar. Kader dapat menambahkan node di halaman <a href="{{ route('peta-evakuasi.index') }}" class="font-semibold text-teal-600 hover:underline">Peta Evakuasi</a>.</div>
+        @endif
+    </section>
+
+    <!-- ===================== PETA + POSKO ===================== -->
+    <section id="peta" class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-20">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            <div class="lg:col-span-8">
+                <span class="section-tag">Peta &amp; logistik evakuasi</span>
+                <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Sebaran Node &amp; Posko Evakuasi</h2>
+                <div class="mt-3 flex flex-wrap gap-2 text-[12px]">
+                    <span class="badge badge-aman">Aman</span><span class="badge badge-waspada">Waspada</span><span class="badge badge-bahaya">Bahaya</span><span class="badge badge-none">Belum ada data</span>
+                    <span class="badge badge-plain bg-air-100 text-teal-700"><span class="material-symbols-outlined text-[14px]">home_health</span>Posko</span>
+                </div>
+                <div class="card mt-4 p-2 overflow-hidden">
+                    <div id="homeMap" class="w-full h-[340px] sm:h-[400px] rounded-lg bg-air-100"></div>
+                </div>
+            </div>
+
+            <aside class="lg:col-span-4 lg:pt-[92px]">
+                <div class="card p-5 sm:p-6 bg-air-50 h-full flex flex-col gap-4">
+                    <div class="flex items-center gap-2 text-teal-700"><span class="material-symbols-outlined">home_health</span><span class="text-[11px] font-mono font-semibold uppercase tracking-wider">Posko evakuasi</span></div>
+                    <h3 class="text-[19px] font-bold text-deep-900 -mt-1">Titik kumpul &amp; check-in warga</h3>
+                    <ul class="flex flex-col gap-2.5">
+                        @forelse($posko as $p)
+                        <li class="bg-white border border-air-200 rounded-lg p-3">
+                            <p class="text-[14px] font-semibold text-deep-900">{{ $p['nama'] }}</p>
+                            <p class="text-[12px] text-deep-500 mt-0.5">{{ $p['lokasi'] }}</p>
+                        </li>
+                        @empty
+                        <li class="text-[13px] text-deep-500">Belum ada posko terdaftar.</li>
+                        @endforelse
+                    </ul>
+                    <p class="text-[13px] text-deep-600 leading-relaxed">Rute evakuasi mengikuti jalan menuju posko terdekat. Setibanya di posko, kader mencatat check-in warga beserta kondisi kesehatannya untuk membantu tim SAR.</p>
+                    <a href="{{ route('peta-evakuasi.index') }}" class="mt-auto inline-flex justify-center items-center gap-2 px-4 py-3 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-semibold font-heading transition">
+                        <span class="material-symbols-outlined text-[20px]">route</span> Buka Peta &amp; Rute Evakuasi
+                    </a>
+                </div>
+            </aside>
+        </div>
+    </section>
+
+    <!-- ===================== CARA KERJA & AI ===================== -->
+    <section id="tentang" class="mt-20 bg-air-100/70 border-y border-air-300/60">
+        <span id="cara-kerja" class="sr-only"></span><span id="algorithms" class="sr-only"></span>
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-16 sm:py-20">
+            <div class="text-center max-w-2xl mx-auto">
+                <span class="section-tag">Arsitektur sistem</span>
+                <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Dari Sensor Lereng sampai Peringatan Warga</h2>
+                <p class="mt-2 text-[15px] text-deep-500">Data mengalir dari node di lapangan, dianalisis di gateway posko, lalu diteruskan ke dashboard, WhatsApp kader, dan warga.</p>
+            </div>
+
+            @php
+                $flow = [
+                    ['sensors', 'Node Sensor', 'ESP32-S3: kelembapan tanah dangkal & dalam, IMU MPU6050, rain gauge'],
+                    ['cell_tower', 'LoRa Mesh 920 MHz', 'Antar-node saling meneruskan data + ACK, tanpa sinyal seluler'],
+                    ['memory', 'Gateway Raspberry Pi', 'Menerima data di posko, menyimpan lokal saat internet putus'],
+                    ['neurology', 'Edge AI', 'Random Forest + LSTM + aturan fisik, langsung di gateway'],
+                    ['cloud_sync', 'Cloud', 'Sinkron ke basis data untuk dashboard & riwayat'],
+                    ['campaign', 'Peringatan & Navigasi', 'Dashboard, WhatsApp kader, rute ke posko'],
+                ];
+            @endphp
+            <ol class="mt-10 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                @foreach($flow as $i => [$ic, $t, $d])
+                <li class="card p-4 relative">
+                    <div class="flex items-center justify-between">
+                        <span class="w-10 h-10 rounded-lg bg-air-100 border border-air-300 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined">{{ $ic }}</span></span>
+                        <span class="font-mono text-[11px] font-semibold text-deep-300">0{{ $i + 1 }}</span>
+                    </div>
+                    <p class="mt-3 text-[14px] font-bold text-deep-900 font-heading leading-snug">{{ $t }}</p>
+                    <p class="mt-1 text-[12px] text-deep-500 leading-relaxed">{{ $d }}</p>
+                </li>
+                @endforeach
+            </ol>
+
+            <div class="mt-14 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                <div class="lg:col-span-4">
+                    <span class="section-tag">Triase AI 3 lapis</span>
+                    <h3 class="mt-2 text-[1.5rem] font-bold text-deep-900 leading-tight">Tiga lapisan yang saling mengoreksi</h3>
+                    <p class="mt-2 text-[15px] text-deep-600 leading-relaxed">Status akhir diambil dari jalur yang paling parah. Skor kerentanan dari survei lanskap hanya boleh menaikkan status, tidak pernah menurunkan.</p>
+                    <div class="info-note p-4 mt-5">
+                        <p class="text-[12px] font-mono font-semibold uppercase tracking-wider text-teal-700">Human in the loop</p>
+                        <p class="text-[14px] text-deep-700 mt-1 leading-relaxed">Status <strong>BAHAYA</strong> ditandai "perlu verifikasi kader" dan dikirim ke kader lebih dulu sebelum disebarkan ke warga.</p>
+                    </div>
+                </div>
+                <div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    @php
+                        $layers = [
+                            ['forest', 'Lapis 1', 'Random Forest', 'Memprediksi status AMAN / WASPADA / BAHAYA 60 menit ke depan dari kelembapan tanah dan akumulasi hujan ("piezometer virtual").', '200 pohon · +60 menit'],
+                            ['timeline', 'Lapis 2', 'LSTM + MC Dropout', 'Meramal kebasahan tanah 1 jam ke depan. Monte Carlo Dropout 30× mengukur ketidakpastian; prediksi ragu dinaikkan ke WASPADA.', 'Window 3 jam · +1 jam'],
+                            ['rule', 'Lapis 3', 'Ambang Fisik', 'Kurva intensitas–durasi hujan (Caine, 1980; Segoni dkk., 2018) dan gerak lereng dari IMU sebagai jaring pengaman independen.', 'Hujan · getaran · kemiringan'],
+                        ];
+                    @endphp
+                    @foreach($layers as [$ic, $lv, $t, $d, $meta])
+                    <div class="card card-accent p-5 flex flex-col">
+                        <div class="flex items-center justify-between">
+                            <span class="w-10 h-10 rounded-lg bg-air-100 border border-air-300 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined">{{ $ic }}</span></span>
+                            <span class="badge badge-cream">{{ $lv }}</span>
+                        </div>
+                        <h4 class="mt-4 text-[16px] font-bold text-deep-900">{{ $t }}</h4>
+                        <p class="mt-1.5 text-[13px] text-deep-600 leading-relaxed">{{ $d }}</p>
+                        <p class="mt-auto pt-4 text-[11px] font-mono font-semibold text-teal-700">{{ $meta }}</p>
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== PERAN PENGGUNA ===================== -->
+    <section id="peran" class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-20">
+        <div class="text-center max-w-2xl mx-auto">
+            <span class="section-tag">Multi-pengguna</span>
+            <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Akses Sesuai Peran</h2>
+            <p class="mt-2 text-[15px] text-deep-500">Warga cukup membuka website tanpa login. Kader dan admin masuk untuk mengelola data lapangan.</p>
+        </div>
+        @php
+            $roles = [
+                ['groups', 'Peran 01', 'Warga', 'Akses publik', 'badge-aman', [
+                    ['monitoring', 'Melihat status lereng & grafik sensor terkini'],
+                    ['map', 'Peta node, rute evakuasi, dan rekap posko'],
+                    ['call', 'Edukasi longsor & kontak darurat 112'],
+                ]],
+                ['shield_person', 'Peran 02', 'Kader Desa', 'Petugas lapangan', 'badge-cream', [
+                    ['notifications_active', 'Menerima peringatan WhatsApp & verifikasi lapangan'],
+                    ['landscape', 'Mengisi survei Data Lanskap per node'],
+                    ['how_to_reg', 'Mencatat check-in warga & lokasi node (GPS)'],
+                ]],
+                ['admin_panel_settings', 'Peran 03', 'Admin', 'Kontrol penuh', 'badge-none', [
+                    ['person_add', 'Membuat akun kader & admin'],
+                    ['fact_check', 'Menyetujui atau menolak pendaftar baru'],
+                    ['tune', 'Semua hak kader'],
+                ]],
+            ];
+        @endphp
+        <div class="mt-10 grid grid-cols-1 md:grid-cols-3 gap-5">
+            @foreach($roles as [$ic, $no, $title, $tag, $bc, $items])
+            <div class="card card-accent p-6">
+                <div class="flex items-center justify-between">
+                    <span class="w-11 h-11 rounded-lg bg-air-100 border border-air-300 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined">{{ $ic }}</span></span>
+                    <span class="badge {{ $bc }} badge-plain">{{ $tag }}</span>
+                </div>
+                <p class="mt-5 text-[11px] font-mono font-semibold uppercase tracking-wider text-deep-400">{{ $no }}</p>
+                <h3 class="text-[20px] font-bold text-deep-900">{{ $title }}</h3>
+                <ul class="mt-4 flex flex-col gap-2.5">
+                    @foreach($items as [$iic, $txt])
+                    <li class="flex items-start gap-2.5 text-[14px] text-deep-600"><span class="material-symbols-outlined text-[18px] text-teal-600 mt-0.5">{{ $iic }}</span>{{ $txt }}</li>
+                    @endforeach
+                </ul>
+            </div>
+            @endforeach
+        </div>
+    </section>
+
+    <!-- ===================== EDUKASI + KONTAK DARURAT ===================== -->
+    <section id="edukasi" class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-20">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div class="lg:col-span-7">
+                <span class="section-tag">Edukasi kebencanaan</span>
+                <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Tanda-Tanda &amp; Penanganan Longsor</h2>
+                <p class="mt-2 text-[14px] text-deep-500">Panduan umum. Karakteristik tiap wilayah bisa berbeda, ikuti arahan BPBD dan kader setempat.</p>
+                @php
+                    $edu = [
+                        ['warning', 'Kenali tanda-tanda awal', true, 'text-amber-500', [
+                            'Muncul retakan baru di tanah atau tembok, terutama sejajar lereng.',
+                            'Air rembesan atau mata air baru di lereng, atau air sumur tiba-tiba keruh.',
+                            'Pohon, tiang listrik, atau pagar mulai miring ke satu arah.',
+                            'Suara gemuruh dari arah lereng saat/setelah hujan deras berkepanjangan.',
+                            'Pintu atau jendela rumah di lereng tiba-tiba sulit dibuka/ditutup.',
+                        ]],
+                        ['backpack', 'Sebelum terjadi (kesiapsiagaan)', false, 'text-teal-600', [
+                            'Kenali rute evakuasi dan posko terdekat di Peta Evakuasi LARAS.',
+                            'Siapkan tas siaga: dokumen penting, senter, obat, air minum, uang tunai secukupnya.',
+                            'Pantau status LARAS dan informasi BMKG saat musim hujan.',
+                        ]],
+                        ['directions_run', 'Saat dan setelah kejadian', false, 'text-rose-500', [
+                            'Saat status BAHAYA, segera menuju posko lewat rute yang sudah ditentukan, jangan ambil jalan pintas.',
+                            'Dahulukan lansia, anak-anak, dan penyandang disabilitas.',
+                            'Lakukan check-in di posko agar tim SAR tahu siapa saja yang sudah aman.',
+                            'Jangan kembali ke lokasi terdampak sebelum ada pernyataan aman dari BPBD/kader.',
+                        ]],
+                    ];
+                @endphp
+                <div class="mt-6 flex flex-col gap-3">
+                    @foreach($edu as [$ic, $t, $open, $dot, $list])
+                    <details class="edu-accordion card p-5" @if($open) open @endif>
+                        <summary class="flex items-center justify-between gap-3 font-semibold text-deep-900 font-heading">
+                            <span class="flex items-center gap-3"><span class="w-9 h-9 rounded-lg bg-air-100 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined text-[20px]">{{ $ic }}</span></span>{{ $t }}</span>
+                            <span class="material-symbols-outlined chev transition-transform text-deep-400">expand_more</span>
+                        </summary>
+                        <ul class="mt-4 space-y-2 text-[14px] text-deep-600 pl-1">
+                            @foreach($list as $li)<li class="flex items-start gap-2.5"><span class="{{ $dot }} mt-[7px] w-1.5 h-1.5 rounded-full bg-current shrink-0"></span>{{ $li }}</li>@endforeach
+                        </ul>
+                    </details>
+                    @endforeach
+                </div>
+            </div>
+
+            <div id="kontak-darurat" class="lg:col-span-5">
+                <span class="section-tag">Darurat</span>
+                <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Kontak Darurat</h2>
+                <p class="mt-2 text-[14px] text-deep-500">LARAS adalah alat bantu, bukan pengganti prosedur resmi.</p>
+                <a href="tel:112" class="mt-6 flex items-center gap-4 p-5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white shadow-lg shadow-rose-600/20 transition">
+                    <span class="w-12 h-12 rounded-full bg-white/15 flex items-center justify-center"><span class="material-symbols-outlined text-[26px]">call</span></span>
+                    <span>
+                        <span class="block font-mono text-[28px] font-bold leading-none">112</span>
+                        <span class="block text-[13px] text-white/85 mt-1">Panggilan darurat gratis, bisa saat HP terkunci</span>
+                    </span>
+                </a>
+                <div class="mt-3 grid grid-cols-2 gap-3">
+                    @php
+                        $kontak = [['117', 'BNPB', 'Koordinasi bencana nasional', 'tel:117'], ['115', 'Basarnas', 'Pencarian & evakuasi (SAR)', 'tel:115'],
+                                   ['(031) 99860466', 'BPBD setempat', 'Wilayah pilot LARAS', 'tel:03199860466'], ['menyusul', 'Kader / posko desa', 'Nomor kader EWS-L', null]];
+                    @endphp
+                    @foreach($kontak as [$num, $who, $desc, $href])
+                    <a @if($href) href="{{ $href }}" @endif class="card p-4 {{ $href ? 'card-accent' : 'border-dashed' }}">
+                        <p class="font-mono font-bold text-teal-700 {{ strlen($num) > 6 ? 'text-[15px]' : 'text-[22px]' }} leading-tight">{{ $num }}</p>
+                        <p class="mt-1 text-[14px] font-semibold text-deep-900">{{ $who }}</p>
+                        <p class="text-[12px] text-deep-500">{{ $desc }}</p>
+                    </a>
+                    @endforeach
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== TIM ===================== -->
+    <section id="developers" class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-20">
+        <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-8">
+            <div>
+                <span class="section-tag">Tim pengembang</span>
+                <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Dikembangkan di Institut Teknologi Sepuluh Nopember</h2>
+            </div>
+            <p class="text-[14px] text-deep-500 md:text-right">Departemen Teknik Komputer · ITS Surabaya</p>
+        </div>
+        @php
+            $devs = [
+                ['Devi Putri Sekar Arum', '5024241049', 'Machine Learning & AI Engineer'],
+                ['Athaya Khairani Adi', '5024241007', 'Web Developer & Software Engineer'],
+                ['Atika Najwa Azzahra', '5024241091', 'Hardware Engineer & Prototype Designer'],
+                ['Ir. Arta Kusuma Hernanda, S.T., M.T.', 'Dosen Pembimbing', 'Pembimbing Tim'],
+            ];
+        @endphp
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            @foreach($devs as $i => [$name, $id, $role])
+            <div class="card p-5 flex items-center gap-4">
+                <span class="w-12 h-12 shrink-0 rounded-full {{ $i === 3 ? 'bg-deep-900 text-cream-200' : 'bg-air-100 text-teal-700 border border-air-300' }} flex items-center justify-center font-heading font-bold text-[18px]">{{ mb_substr($name, $i === 3 ? 4 : 0, 1) }}</span>
+                <div class="min-w-0">
+                    <p class="text-[14px] font-bold text-deep-900 leading-snug">{{ $name }}</p>
+                    <p class="text-[11px] font-mono text-deep-400">{{ $id }}</p>
+                    <p class="text-[12px] text-deep-600 mt-0.5">{{ $role }}</p>
+                </div>
+            </div>
+            @endforeach
+        </div>
+    </section>
+
+    <!-- ===================== CTA ===================== -->
+    <section class="max-w-[1200px] mx-auto px-4 sm:px-6 pt-20">
+        <div class="rounded-2xl bg-air-100 border border-air-300 p-6 sm:p-10 flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
+            <div class="absolute -right-16 -bottom-20 w-64 h-64 rounded-full bg-air-200/70 pointer-events-none"></div>
+            <div class="relative max-w-2xl">
+                <span class="chip-outline"><span class="material-symbols-outlined text-[15px]">verified</span> Riset Teknik Komputer ITS</span>
+                <h2 class="mt-3 text-[1.6rem] sm:text-[2rem] font-bold text-deep-900 leading-tight">Pantau kondisi lereng secara real-time</h2>
+                <p class="mt-2 text-[15px] text-deep-600">Buka Live Monitoring untuk melihat data sensor terbaru, prediksi AI, cuaca BMKG, dan bertanya ke LARAS AI Assistant.</p>
+            </div>
+            <div class="relative flex flex-wrap gap-3">
+                <button onclick="enterDashboard()" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-semibold font-heading shadow-md transition">
+                    <span class="material-symbols-outlined text-[20px]">monitoring</span> Live Monitoring
+                </button>
+                <a href="#edukasi" class="inline-flex items-center gap-2 px-6 py-3 rounded-lg bg-white border border-air-300 hover:bg-air-50 text-deep-900 font-semibold font-heading transition">Baca Edukasi</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- ===================== FOOTER ===================== -->
+    <footer class="mt-20 bg-deep-900 text-white">
+        <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div>
+                <div class="flex items-center gap-2.5">
+                    <span class="w-10 h-10 rounded-xl bg-white flex items-center justify-center overflow-hidden"><img src="/images/logo_laras.png" alt="Logo LARAS" class="w-8 h-8 object-contain"></span>
+                    <span class="font-heading font-bold text-[18px]">LARAS</span>
+                </div>
+                <p class="mt-3 text-[13px] text-deep-200 leading-relaxed">Landslide Alert and Rescue Adaptive System. Sistem peringatan dini dan navigasi evakuasi longsor berbasis Edge AIoT.</p>
+            </div>
+            <div>
+                <p class="text-[11px] font-mono font-semibold uppercase tracking-wider text-cream-200">Navigasi</p>
+                <ul class="mt-3 space-y-2 text-[14px] text-deep-100">
+                    <li><a href="#beranda" class="hover:text-white">Beranda</a></li>
+                    <li><a href="javascript:enterDashboard()" class="hover:text-white">Live Monitoring</a></li>
+                    <li><a href="{{ route('peta-evakuasi.index') }}" class="hover:text-white">Peta Evakuasi</a></li>
+                    <li><a href="{{ route('lanskap.index') }}" class="hover:text-white">Data Lanskap</a></li>
+                    <li><a href="#edukasi" class="hover:text-white">Edukasi</a></li>
+                </ul>
+            </div>
+            <div>
+                <p class="text-[11px] font-mono font-semibold uppercase tracking-wider text-cream-200">Darurat 24 jam</p>
+                <ul class="mt-3 space-y-2 text-[14px] text-deep-100">
+                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-cream-200">call</span><a href="tel:112" class="font-mono hover:text-white">112 (bebas pulsa)</a></li>
+                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-cream-200">support_agent</span><a href="tel:117" class="font-mono hover:text-white">BNPB 117</a></li>
+                    <li class="flex items-center gap-2"><span class="material-symbols-outlined text-[18px] text-cream-200">sos</span><a href="tel:115" class="font-mono hover:text-white">Basarnas 115</a></li>
+                </ul>
+            </div>
+            <div>
+                <p class="text-[11px] font-mono font-semibold uppercase tracking-wider text-cream-200">Institusi</p>
+                <p class="mt-3 text-[14px] text-deep-100 leading-relaxed">Departemen Teknik Komputer<br>Institut Teknologi Sepuluh Nopember<br>Surabaya, Jawa Timur</p>
+            </div>
+        </div>
+        <div class="border-t border-white/10">
+            <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row justify-between gap-2 text-[12px] text-deep-300">
+                <span>© {{ date('Y') }} LARAS · Institut Teknologi Sepuluh Nopember</span>
+                <span class="font-mono inline-flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full {{ $lastAgo ? 'bg-emerald-400' : 'bg-slate-400' }}"></span>Data terakhir: {{ $lastAgo ?? '–' }}</span>
+            </div>
         </div>
     </footer>
+
+    <!-- Peta mini Beranda (Leaflet) -->
+    <script>
+        (function () {
+            const nodes = @json(collect($nodes)->filter(fn ($n) => $n->lat !== null && $n->lng !== null)->values());
+            const posko = @json($posko);
+            const colors = { AMAN: '#10B981', WASPADA: '#F59E0B', BAHAYA: '#E11D48' };
+            function init() {
+                const el = document.getElementById('homeMap');
+                if (!el || typeof L === 'undefined') { if (el) el.innerHTML = '<div class="h-full flex items-center justify-center text-sm text-deep-400">Peta tidak dapat dimuat.</div>'; return; }
+                const map = L.map(el, { scrollWheelZoom: false, attributionControl: true });
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
+                const pts = [];
+                const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+                nodes.forEach(n => {
+                    const c = colors[n.status] || '#94A3B8';
+                    L.circleMarker([n.lat, n.lng], { radius: 9, color: '#fff', weight: 2, fillColor: c, fillOpacity: 1 }).addTo(map)
+                        .bindPopup(`<b>${esc(n.node_name || n.node_code)}</b><br>${esc(n.desa || '')}<br>Status: <b>${esc(n.status_label)}</b>` + (n.battery !== null ? `<br>Baterai: ${esc(n.battery)}%` : ''));
+                    pts.push([n.lat, n.lng]);
+                });
+                posko.forEach(p => {
+                    L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div style="width:28px;height:28px;border-radius:8px;background:#008080;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);font:600 14px Inter">P</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) })
+                        .addTo(map).bindPopup(`<b>${esc(p.nama)}</b><br>${esc(p.lokasi)}`);
+                    pts.push([p.lat, p.lng]);
+                });
+                if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 15 }); else map.setView([-7.66, 112.54], 13);
+                window.larasHomeMap = map;
+            }
+            if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
+        })();
+    </script>
 </div>
 
 <div id="dashboard-page" style="display:none;">
@@ -822,7 +1796,7 @@
                 <div class="flex items-center gap-3 pt-2">
                     <div class="flex-1 h-px bg-gradient-to-r from-purple-200 to-transparent"></div>
                     <div class="flex items-center gap-2 bg-gradient-to-r from-purple-50 to-indigo-50 border border-purple-200 px-4 py-2 rounded-full">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#4C3625" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#008080" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
                         <span class="text-xs font-bold text-purple-700 uppercase tracking-widest">Predictive Analytics</span>
                     </div>
                     <div class="flex-1 h-px bg-gradient-to-l from-purple-200 to-transparent"></div>
@@ -1057,6 +2031,8 @@ const PAGE = 10;
 function enterDashboard() {
     // simpan #live di URL supaya refresh / link dari halaman lain langsung ke Live Control
     if (location.hash !== '#live') history.replaceState(null, '', '#live');
+    if (window.larasSetNav) larasSetNav('live');
+    window.scrollTo({ top: 0 });
     const lp = document.getElementById('landing-page');
     const dp = document.getElementById('dashboard-page');
     lp.style.opacity = '0';
@@ -1078,6 +2054,7 @@ function enterDashboard() {
 
 function backToLanding() {
     if (location.hash === '#live') history.replaceState(null, '', location.pathname);
+    if (window.larasSetNav) larasSetNav('home');
     const lp = document.getElementById('landing-page');
     const dp = document.getElementById('dashboard-page');
     dp.style.opacity = '0';
@@ -1090,6 +2067,7 @@ function backToLanding() {
         setTimeout(() => {
             lp.style.opacity = '1';
             lp.style.transform = 'translateY(0)';
+            if (window.larasHomeMap) window.larasHomeMap.invalidateSize();
         }, 50);
     }, 350);
 }
@@ -1145,8 +2123,8 @@ function renderMoistureSlide() {
             datasets: [{
                 label: 'Moisture %',
                 data: slice.map(d => d.soil_moisture),
-                borderColor: '#4E6A83',
-                backgroundColor: 'rgba(78,106,131,0.08)',
+                borderColor: '#008080',
+                backgroundColor: 'rgba(0,128,128,0.08)',
                 fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2
             }]
         },
@@ -1172,8 +2150,8 @@ function renderMoistureDeepSlide() {
             datasets: [{
                 label: 'Moisture Dalam %',
                 data: slice.map(d => d.moisture_percent_deep),
-                borderColor: '#494822',
-                backgroundColor: 'rgba(73,72,34,0.08)',
+                borderColor: '#133332',
+                backgroundColor: 'rgba(19,51,50,0.08)',
                 fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2
             }]
         },
@@ -1198,9 +2176,9 @@ function renderAccelSlide() {
         data: {
             labels: slice.map(d => fmtLabel(d.timestamp)),
             datasets: [
-                { label: 'X', data: slice.map(d => d.accel_x), borderColor: '#4E6A83', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
-                { label: 'Y', data: slice.map(d => d.accel_y), borderColor: '#E3922A', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
-                { label: 'Z', data: slice.map(d => d.accel_z), borderColor: '#4C3625', tension: 0.4, pointRadius: 2, borderWidth: 1.5 }
+                { label: 'X', data: slice.map(d => d.accel_x), borderColor: '#133332', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
+                { label: 'Y', data: slice.map(d => d.accel_y), borderColor: '#008080', tension: 0.4, pointRadius: 2, borderWidth: 1.5 },
+                { label: 'Z', data: slice.map(d => d.accel_z), borderColor: '#D68F14', tension: 0.4, pointRadius: 2, borderWidth: 1.5 }
             ]
         },
         options: {
@@ -1461,7 +2439,7 @@ function statusToNumForecast(s) {
 
 function forecastStatusColor(s) {
     const su = (s || '').toUpperCase();
-    if (su === 'AMAN')    return { bg: 'rgba(73,72,34,0.45)',  border: '#494822' };
+    if (su === 'AMAN')    return { bg: 'rgba(34,197,94,0.35)',  border: '#16a34a' };
     if (su === 'WASPADA') return { bg: 'rgba(250,180,75,0.55)', border: '#FAB44B' };
     if (su === 'BAHAYA')  return { bg: 'rgba(239,68,68,0.6)',   border: '#ef4444' };
     return { bg: 'rgba(148,163,184,0.3)', border: '#94a3b8' };
@@ -1561,7 +2539,7 @@ function renderForecastStatusChart(data) {
             scales: {
                 y: {
                     min: 0, max: 3.5, grid: { color: '#eef1f3' },
-                    ticks: { stepSize: 1, callback: v => { if(v==1) return 'AMAN'; if(v==2) return 'WASPADA'; if(v==3) return 'BAHAYA'; return ''; }, color: '#4C3625' }
+                    ticks: { stepSize: 1, callback: v => { if(v==1) return 'AMAN'; if(v==2) return 'WASPADA'; if(v==3) return 'BAHAYA'; return ''; }, color: '#133332' }
                 },
                 x: { grid: { color: '#eef1f3' } }
             }
@@ -1585,24 +2563,24 @@ function renderConfidenceChart(data) {
                 {
                     label: 'RF Confidence',
                     data: slice.map(d => d.rf_confidence != null ? parseFloat(d.rf_confidence) : null),
-                    borderColor: '#4C3625',
-                    backgroundColor: 'rgba(76,54,37,0.08)',
+                    borderColor: '#008080',
+                    backgroundColor: 'rgba(0,128,128,0.08)',
                     fill: false, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     spanGaps: true
                 },
                 {
                     label: 'LSTM Confidence',
                     data: slice.map(d => d.lstm_confidence != null ? parseFloat(d.lstm_confidence) : null),
-                    borderColor: '#06b6d4',
-                    backgroundColor: 'rgba(169,181,180,0.08)',
+                    borderColor: '#133332',
+                    backgroundColor: 'rgba(152,171,203,0.08)',
                     fill: false, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     spanGaps: true
                 },
                 {
                     label: 'Forecast Confidence',
                     data: slice.map(d => d.forecast_confidence != null ? parseFloat(d.forecast_confidence) : null),
-                    borderColor: '#A9B5B4',
-                    backgroundColor: 'rgba(169,181,180,0.08)',
+                    borderColor: '#D68F14',
+                    backgroundColor: 'rgba(152,171,203,0.08)',
                     fill: false, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     borderDash: [4, 3],
                     spanGaps: true
@@ -1620,7 +2598,7 @@ function renderConfidenceChart(data) {
                 }
             },
             scales: {
-                y: { min: 0, max: 100, grid: { color: '#eef1f3' }, ticks: { callback: v => v + '%', color: '#4C3625' } },
+                y: { min: 0, max: 100, grid: { color: '#eef1f3' }, ticks: { callback: v => v + '%', color: '#133332' } },
                 x: { grid: { color: '#eef1f3' } }
             }
         }
@@ -1655,16 +2633,16 @@ function renderForecastMoistureChart(data) {
                 {
                     label: 'Moisture Aktual (%)',
                     data: histDataset,
-                    borderColor: '#4E6A83',
-                    backgroundColor: 'rgba(78,106,131,0.08)',
+                    borderColor: '#008080',
+                    backgroundColor: 'rgba(0,128,128,0.08)',
                     fill: true, tension: 0.4, pointRadius: 3, borderWidth: 2,
                     spanGaps: false
                 },
                 {
                     label: 'Proyeksi +' + forecastInterval + 'min',
                     data: projDataset,
-                    borderColor: '#A9B5B4',
-                    backgroundColor: 'rgba(169,181,180,0.12)',
+                    borderColor: '#D68F14',
+                    backgroundColor: 'rgba(152,171,203,0.12)',
                     fill: true, tension: 0.4, pointRadius: 4, borderWidth: 2,
                     borderDash: [5, 4],
                     pointStyle: 'triangle',
@@ -1679,7 +2657,7 @@ function renderForecastMoistureChart(data) {
                 annotation: {}
             },
             scales: {
-                y: { min: 0, max: 100, grid: { color: '#eef1f3' }, ticks: { callback: v => v + '%', color: '#4C3625' } },
+                y: { min: 0, max: 100, grid: { color: '#eef1f3' }, ticks: { callback: v => v + '%', color: '#133332' } },
                 x: { grid: { color: '#eef1f3' } }
             }
         }

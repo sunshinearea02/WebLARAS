@@ -11,7 +11,7 @@ use Illuminate\Validation\Rule;
 class EvacuationMapController extends Controller
 {
     // Daftar Pilihan Posko Aman di Pacet
-    private function getDaftarPosko()
+    public function getDaftarPosko(): array
     {
         return [
             [
@@ -63,7 +63,7 @@ class EvacuationMapController extends Controller
     /**
      * Node sensor dari database + data terakhir tiap node (status risiko & baterai).
      */
-    private function nodesForMap(): array
+    public function nodesForMap(): array
     {
         try {
             $nodes = SensorNode::orderBy('node_code')->get();
@@ -95,10 +95,17 @@ class EvacuationMapController extends Controller
                 'notes'       => $n->notes,
                 'lat'         => $n->latitude,
                 'lng'         => $n->longitude,
-                'status'      => strtoupper($last?->status ?: 'UNKNOWN'),
+                // UNKNOWN = node belum pernah kirim data; PENDING = data ada tapi belum dianalisis AI
+                'status'      => $status = ! $last ? 'UNKNOWN'
+                    : (in_array(strtoupper((string) $last->status), ['', 'UNKNOWN'], true) ? 'PENDING' : strtoupper($last->status)),
+                'status_label'=> match ($status) {
+                    'UNKNOWN' => 'BELUM ADA DATA',
+                    'PENDING' => 'MENUNGGU ANALISIS',
+                    default   => $status,
+                },
                 'battery'     => $bat?->battery_percent,
                 'voltage'     => $bat?->battery_voltage,
-                'battery_at'  => $bat?->timestamp ? \Illuminate\Support\Carbon::parse($bat->timestamp)->diffForHumans() : null,
+                'battery_at'  => $bat?->timestamp ? \Illuminate\Support\Carbon::parse($bat->timestamp)->locale('id')->diffForHumans() : null,
             ];
         })->all();
     }

@@ -31,7 +31,12 @@ class DashboardController extends Controller
             $weatherInfo['condition'] = 'Gagal memuat cuaca';
         }
         
-        return view('dashboard', compact('logs', 'current', 'weatherInfo'));
+        // Ringkasan node & posko untuk Beranda (sama dengan halaman Peta Evakuasi)
+        $map    = app(EvacuationMapController::class);
+        $nodes  = $map->nodesForMap();
+        $posko  = $map->getDaftarPosko();
+
+        return view('dashboard', compact('logs', 'current', 'weatherInfo', 'nodes', 'posko'));
     }
 
     public function getLatestData()

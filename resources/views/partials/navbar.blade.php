@@ -1,146 +1,135 @@
 {{--
-    Navbar bersama untuk semua halaman (homepage/Live Control, Data Lanskap, Peta Evakuasi).
-    Bentuk: bar atas kecil + menu samping kiri (drawer) yang dibuka dengan tombol titik tiga.
+    Navbar bersama untuk semua halaman (Beranda/Live Monitoring, Data Lanskap, Peta Evakuasi, Admin).
+    Desktop : header putih dengan menu horizontal + tombol Darurat 112 + Masuk Petugas / akun.
+    Semua   : tombol garis tiga berkotak di kiri logo -> membuka menu samping kiri (drawer).
     Pemakaian:  @include('partials.navbar', ['active' => 'lanskap'])
-    active : 'home' | 'lanskap' | 'peta' | 'petugas'
+    active : 'home' | 'live' | 'lanskap' | 'peta' | 'petugas'
 --}}
 @php
     $active = $active ?? null;
+    $top    = 'px-2.5 xl:px-3 py-2 rounded-lg text-[14px] font-medium transition whitespace-nowrap';
+    $topIdle= 'text-deep-700 hover:text-teal-600 hover:bg-air-100';
+    $topOn  = 'text-teal-700 bg-air-100 font-semibold';
     $item   = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition';
-    $idle   = 'text-slate-600 hover:text-slate-900 hover:bg-slate-100';
-    $on     = 'text-blue-700 bg-blue-50';
+    $idle   = 'text-deep-700 hover:text-teal-700 hover:bg-air-100';
+    $on     = 'text-teal-700 bg-air-100 border-l-4 border-teal-500';
 @endphp
 
-<style>section[id] { scroll-margin-top: 88px; }</style>
+<style>section[id] { scroll-margin-top: 84px; }</style>
 
-<!-- BAR ATAS -->
-<header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3">
+<!-- HEADER -->
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-air-300/70">
+    <div class="max-w-[1200px] mx-auto px-4 sm:px-6 h-[68px] flex items-center gap-4">
 
-        <!-- Tombol titik tiga: buka menu samping -->
+        <!-- Tombol garis tiga berkotak (tampil di SEMUA halaman & ukuran layar) -->
         <button type="button" id="sideMenuOpen" aria-controls="sideMenu" aria-expanded="false" aria-label="Buka menu"
-                class="w-10 h-10 shrink-0 inline-flex items-center justify-center rounded-lg text-slate-700 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <circle cx="12" cy="5" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="19" r="2"/>
+                class="w-10 h-10 shrink-0 inline-flex items-center justify-center rounded-lg bg-white border border-air-300 text-teal-700 shadow-sm hover:bg-teal-500 hover:border-teal-500 hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-air-300 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                <line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/>
             </svg>
         </button>
 
         <!-- Logo -->
-        <a href="/" class="flex items-center gap-2.5 shrink-0">
-            <img src="/images/logo_laras.png" alt="Logo LARAS" class="w-9 h-9 rounded-lg object-cover">
-            <span class="leading-none">
-                <span class="block text-lg font-extrabold tracking-tight text-slate-900">LARAS</span>
-                <span class="block text-[9px] uppercase tracking-[0.2em] text-slate-400 font-bold mt-1">Control Center</span>
+        <a href="/" class="flex items-center gap-3 shrink-0" data-nav="home">
+            <span class="hidden sm:flex w-10 h-10 rounded-xl bg-air-100 border border-air-300 items-center justify-center overflow-hidden">
+                <img src="/images/logo_laras.png" alt="Logo LARAS" class="w-8 h-8 object-contain">
+            </span>
+            <span class="leading-tight">
+                <span class="block text-[15px] sm:text-[17px] font-bold tracking-tight text-deep-900 font-heading">LARAS Control Center</span>
+                <span class="hidden sm:block xl:hidden 2xl:block text-[11px] text-deep-500">Peringatan Dini &amp; Evakuasi Longsor</span>
+                <span class="hidden xl:block 2xl:hidden text-[11px] text-deep-500">Sistem Peringatan Dini Longsor</span>
             </span>
         </a>
 
-        <!-- Kanan: Live Control + nama user -->
-        <div class="ml-auto flex items-center gap-3">
-            <a href="/#live" class="shrink-0 inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold shadow-sm transition">
-                <span class="relative flex w-2 h-2">
-                    <span class="absolute inline-flex w-full h-full rounded-full bg-white/70 animate-ping"></span>
-                    <span class="relative inline-flex w-2 h-2 rounded-full bg-white"></span>
-                </span>
-                <span>Live<span class="hidden sm:inline"> Control</span></span>
+        <!-- Menu desktop -->
+        <nav class="hidden lg:flex items-center gap-0.5 ml-2 xl:ml-4" aria-label="Menu utama">
+            <a href="/" data-nav="home" class="{{ $top }} {{ $active === 'home' ? $topOn : $topIdle }}">Beranda</a>
+            <a href="/#live" data-nav="live" class="{{ $top }} {{ $active === 'live' ? $topOn : $topIdle }}">Live Monitoring</a>
+            <a href="{{ route('peta-evakuasi.index') }}" class="{{ $top }} {{ $active === 'peta' ? $topOn : $topIdle }}" @if($active === 'peta') aria-current="page" @endif>Peta Evakuasi</a>
+            <a href="{{ route('lanskap.index') }}" class="{{ $top }} {{ $active === 'lanskap' ? $topOn : $topIdle }}" @if($active === 'lanskap') aria-current="page" @endif>Data Lanskap</a>
+            <a href="/#edukasi" class="{{ $top }} {{ $topIdle }}">Edukasi</a>
+            <a href="/#tentang" class="{{ $top }} {{ $topIdle }}">Tentang</a>
+        </nav>
+
+        <!-- Kanan -->
+        <div class="ml-auto flex items-center gap-2 sm:gap-3">
+            <a href="tel:112" class="hidden md:inline-flex lg:hidden xl:inline-flex items-center gap-1.5 px-2 py-2 text-[14px] font-semibold text-rose-600 hover:text-rose-700 whitespace-nowrap">
+                <span class="material-symbols-outlined text-[20px]">emergency</span> Darurat 112
             </a>
             @auth
-                <div class="text-right hidden sm:block">
-                    <p class="text-[13px] font-bold text-slate-800 leading-tight">{{ Auth::user()->name }}</p>
-                    <p class="text-[10px] font-mono uppercase font-semibold text-blue-600 leading-tight">{{ Auth::user()->role }}</p>
+                <div class="hidden md:block text-right leading-tight">
+                    <p class="text-[13px] font-semibold text-deep-900 max-w-[140px] truncate">{{ Auth::user()->name }}</p>
+                    <p class="text-[10px] font-mono uppercase font-semibold text-teal-600">{{ Auth::user()->role }}</p>
                 </div>
+            @else
+                <a href="{{ route('login') }}" class="hidden sm:inline-flex items-center px-4 py-2.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-[14px] font-semibold font-heading shadow-sm transition whitespace-nowrap">Masuk Petugas</a>
             @endauth
+
         </div>
     </div>
 </header>
 
 <!-- LATAR GELAP (klik untuk menutup menu) -->
-<div id="sideMenuOverlay" class="fixed inset-0 z-50 bg-slate-900/40 opacity-0 pointer-events-none transition-opacity duration-200"></div>
+<div id="sideMenuOverlay" class="fixed inset-0 z-50 bg-deep-900/30 opacity-0 pointer-events-none transition-opacity duration-200"></div>
 
-<!-- MENU SAMPING KIRI -->
-<aside id="sideMenu" aria-label="Menu utama" aria-hidden="true"
-       class="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] bg-white border-r border-slate-200 shadow-xl flex flex-col -translate-x-full transition-transform duration-200 ease-out">
+<!-- MENU SAMPING -->
+<aside id="sideMenu" aria-label="Menu" aria-hidden="true"
+       class="fixed inset-y-0 left-0 z-50 w-80 max-w-[88vw] bg-white border-r border-air-300 shadow-float flex flex-col -translate-x-full transition-transform duration-200 ease-out">
 
-    <!-- Kepala menu -->
-    <div class="flex items-center justify-between px-4 py-4 border-b border-slate-100">
+    <div class="flex items-center justify-between px-5 h-[68px] border-b border-air-300/70">
         <a href="/" class="flex items-center gap-2.5">
-            <img src="/images/logo_laras.png" alt="Logo LARAS" class="w-8 h-8 rounded-lg object-cover">
-            <span class="text-base font-extrabold tracking-tight text-slate-900">LARAS</span>
+            <span class="w-9 h-9 rounded-xl bg-air-100 border border-air-300 flex items-center justify-center overflow-hidden">
+                <img src="/images/logo_laras.png" alt="Logo LARAS" class="w-7 h-7 object-contain">
+            </span>
+            <span class="text-[16px] font-bold tracking-tight text-deep-900 font-heading">LARAS</span>
         </a>
         <button type="button" id="sideMenuClose" aria-label="Tutup menu"
-                class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-800 transition">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                class="w-9 h-9 inline-flex items-center justify-center rounded-lg text-deep-500 hover:bg-air-100 hover:text-deep-900 transition">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
     </div>
 
-    <!-- Daftar menu -->
+    @auth
+        <div class="mx-4 mt-4 p-3 rounded-xl bg-air-100 border border-air-300 flex items-center gap-3">
+            <span class="w-10 h-10 rounded-full bg-teal-500 text-white flex items-center justify-center font-bold font-heading">{{ strtoupper(mb_substr(Auth::user()->name, 0, 1)) }}</span>
+            <div class="min-w-0">
+                <p class="text-sm font-semibold text-deep-900 truncate">{{ Auth::user()->name }}</p>
+                <p class="text-[10px] font-mono uppercase font-semibold text-teal-600">{{ Auth::user()->role }}</p>
+            </div>
+        </div>
+    @endauth
+
     <nav class="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-        <p class="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Menu</p>
+        <p class="px-3 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Menu</p>
+        <a href="/" data-nav="home" class="{{ $item }} {{ $active === 'home' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">home</span>Beranda</a>
+        <a href="/#live" data-nav="live" class="{{ $item }} {{ $active === 'live' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">monitoring</span>Live Monitoring</a>
+        <a href="{{ route('peta-evakuasi.index') }}" class="{{ $item }} {{ $active === 'peta' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">map</span>Peta Evakuasi</a>
+        <a href="{{ route('lanskap.index') }}" class="{{ $item }} {{ $active === 'lanskap' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">landscape</span>Data Lanskap</a>
 
-        <a href="/" class="{{ $item }} {{ $active === 'home' ? $on : $idle }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>
-            Beranda
-        </a>
-        <a href="/#live" class="{{ $item }} {{ $idle }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
-            Live Control Center
-        </a>
-        <a href="/#edukasi" class="{{ $item }} {{ $idle }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-            Edukasi
-        </a>
-        <a href="{{ route('lanskap.index') }}" class="{{ $item }} {{ $active === 'lanskap' ? $on : $idle }}" @if($active === 'lanskap') aria-current="page" @endif>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
-            Data Lanskap
-        </a>
-        <a href="{{ route('peta-evakuasi.index') }}" class="{{ $item }} {{ $active === 'peta' ? $on : $idle }}" @if($active === 'peta') aria-current="page" @endif>
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 6v16l7-4 8 4 7-4V2l-7 4-8-4-7 4z"/><path d="M8 2v16M16 6v16"/></svg>
-            Peta Evakuasi
-        </a>
-
-        <p class="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Tentang LARAS</p>
-        <a href="/#features" class="{{ $item }} {{ $idle }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
-            Fitur
-        </a>
-        <a href="/#algorithms" class="{{ $item }} {{ $idle }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9h6v6H9zM9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 14h3M1 9h3M1 14h3"/></svg>
-            Algoritma AI
-        </a>
-        <a href="/#developers" class="{{ $item }} {{ $idle }}">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-            Tim Developer
-        </a>
+        <p class="px-3 pt-4 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Tentang LARAS</p>
+        <a href="/#edukasi" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">menu_book</span>Edukasi Longsor</a>
+        <a href="/#tentang" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">neurology</span>Cara Kerja &amp; AI</a>
+        <a href="/#peran" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">groups</span>Peran Pengguna</a>
+        <a href="/#developers" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">badge</span>Tim Pengembang</a>
 
         @can('kelola-akun')
-            <p class="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Admin</p>
-            <a href="{{ route('register') }}" class="{{ $item }} {{ $active === 'petugas' ? $on : $idle }}" @if($active === 'petugas') aria-current="page" @endif>
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>
-                Tambah Petugas
-            </a>
+            <p class="px-3 pt-4 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Admin</p>
+            <a href="{{ route('register') }}" class="{{ $item }} {{ $active === 'petugas' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">person_add</span>Kelola Petugas</a>
         @endcan
 
-        <p class="px-3 pt-4 pb-1 text-[10px] font-bold uppercase tracking-widest text-slate-400">Darurat</p>
-        <a href="tel:112" class="{{ $item }} text-rose-600 hover:bg-rose-50">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-            Kontak Darurat (112)
-        </a>
+        <p class="px-3 pt-4 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Darurat</p>
+        <a href="tel:112" class="{{ $item }} text-rose-600 hover:bg-rose-50"><span class="material-symbols-outlined text-[20px]">call</span>Kontak Darurat (112)</a>
     </nav>
 
-    <!-- Bagian bawah: status login -->
-    <div class="border-t border-slate-100 p-4">
+    <div class="border-t border-air-300/70 p-4">
         @auth
-            <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <p class="text-sm font-bold text-slate-800 truncate">{{ Auth::user()->name }}</p>
-                    <p class="text-[10px] font-mono uppercase font-semibold text-blue-600">{{ Auth::user()->role }}</p>
-                </div>
-                <form action="{{ route('logout') }}" method="POST">
-                    @csrf
-                    <button type="submit" class="px-3 py-2 rounded-lg text-[13px] font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition">Logout</button>
-                </form>
-            </div>
+            <form action="{{ route('logout') }}" method="POST">
+                @csrf
+                <button type="submit" class="w-full px-3 py-2.5 rounded-lg text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition">Keluar</button>
+            </form>
         @else
-            <a href="{{ route('login') }}" class="block w-full text-center px-3 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-sm font-semibold transition">Login Petugas</a>
+            <a href="{{ route('login') }}" class="block w-full text-center px-3 py-2.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-sm font-semibold transition">Masuk Petugas</a>
+            <p class="text-[11px] text-deep-400 text-center mt-2">Warga tidak perlu login untuk melihat informasi.</p>
         @endauth
     </div>
 </aside>
@@ -160,7 +149,6 @@
             document.body.style.overflow = 'hidden';
             closeBtn.focus();
         }
-
         function closeMenu() {
             menu.classList.add('-translate-x-full');
             overlay.classList.add('opacity-0', 'pointer-events-none');
@@ -168,12 +156,22 @@
             openBtn.setAttribute('aria-expanded', 'false');
             document.body.style.overflow = '';
         }
-
         openBtn.addEventListener('click', openMenu);
         closeBtn.addEventListener('click', closeMenu);
         overlay.addEventListener('click', closeMenu);
         document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
-        // Tutup menu saat salah satu link diklik (berguna untuk link #anchor)
         menu.querySelectorAll('a').forEach(a => a.addEventListener('click', closeMenu));
+
+        // Di Beranda, "Beranda" vs "Live Monitoring" aktif mengikuti #live di URL
+        window.larasSetNav = function (key) {
+            const on  = ['text-teal-700', 'bg-air-100'];
+            document.querySelectorAll('[data-nav]').forEach(a => {
+                if (a.tagName !== 'A' || a.querySelector('img')) return;
+                const isOn = a.dataset.nav === key;
+                on.forEach(c => a.classList.toggle(c, isOn));
+                a.classList.toggle('font-semibold', isOn && !a.closest('aside'));
+                a.classList.toggle('text-deep-700', !isOn);
+            });
+        };
     })();
 </script>

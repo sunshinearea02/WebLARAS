@@ -5,14 +5,18 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Buat Akun — LARAS Control Center</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    @include('partials.theme')
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <style>
+    @include('partials.theme')
+  
+ <style>
         * { font-family: 'Inter', sans-serif; }
         .font-mono { font-family: 'JetBrains Mono', monospace; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen">
+<body class="bg-air-50 text-deep-900 min-h-screen">
 
     @include('partials.navbar', ['active' => 'petugas'])
 
