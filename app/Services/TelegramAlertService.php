@@ -51,6 +51,10 @@ class TelegramAlertService
      */
     public function sendIfChanged(string $status, array $data): ?bool
     {
+        // Telegram belum diatur: lewati tanpa menyusun pesan (menyusun pesan memanggil
+        // /api/weather-bmkg) dan tanpa menambah log "gagal" di setiap polling dashboard.
+        if (empty($this->botToken) || empty($this->chatId)) return null;
+
         $status  = strtoupper(trim($status));
         $cacheKey = 'telegram_last_alert_status';
 

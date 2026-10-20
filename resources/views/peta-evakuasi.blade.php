@@ -938,13 +938,25 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     </style>
 
-    <style>
-        #map { height: 500px; width: 100%; border-radius: .75rem; z-index: 0; }
-        .leaflet-popup-content-wrapper { border-radius: 12px; }
-        .leaflet-routing-container { display: none !important; }
-        .no-scrollbar::-webkit-scrollbar { display: none; }
-        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-    </style>
+   <style>
+    #map { height: 580px; width: 100%; border-radius: 1rem; z-index: 1; }
+    /* Tombol melayang ala Waze di dalam peta */
+    .waze-control-btn {
+        background: white;
+        border: 2px solid rgba(0,0,0,0.2);
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        cursor: pointer;
+        text-align: center;
+        padding: 6px 10px;
+        font-weight: bold;
+        font-size: 12px;
+        color: #0f172a;
+        background-color: #fff;
+        transition: background 0.2s;
+    }
+    .waze-control-btn:hover { background-color: #f1f5f9; }
+</style>
 </head>
 <body class="bg-air-50 text-deep-900 min-h-screen pb-12">
 
@@ -953,52 +965,66 @@ svg.leaflet-image-layer.leaflet-interactive path {
     <div class="max-w-[1200px] mx-auto px-4 sm:px-6 py-8 space-y-6">
 
         <!-- Title Section -->
-        <div>
-            <span class="section-tag">Navigasi Penyelamatan</span>
-            <h2 class="text-[1.75rem] sm:text-[2rem] font-bold text-deep-900 mt-2">Peta Evakuasi Kawasan Pacet</h2>
-            <p class="text-deep-500 mt-1 max-w-2xl text-[14px] leading-relaxed">
-                Visualisasi titik node LARAS di perbukitan Pacet beserta status risiko terkini. Rute evakuasi memandu warga mengikuti kontur jalan dari titik bahaya/lereng menuju Posko Aman terdekat.
-            </p>
+        <div class="flex flex-wrap items-end justify-between gap-4">
+            <div>
+                <span class="section-tag">Navigasi Penyelamatan</span>
+                <h2 class="text-[1.75rem] sm:text-[2rem] font-bold text-deep-900 mt-2">Peta Evakuasi Desa {{ $wilayah['desa'] }}</h2>
+                <p class="text-deep-500 mt-1 max-w-2xl text-[14px] leading-relaxed">
+                    Kec. {{ $wilayah['kecamatan'] }}, Kab. {{ $wilayah['kabupaten'] }}. Warna titik menunjukkan status risiko tiap node sensor.
+                    Rute evakuasi otomatis ditarik dari node berstatus Waspada/Bahaya menuju posko terdekat.
+                </p>
+            </div>
+            <!-- Ringkasan status node -->
+            <div class="flex gap-2">
+                <div class="px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-center min-w-[78px]">
+                    <p class="text-[20px] font-bold text-rose-600 leading-none">{{ $ringkasan['BAHAYA'] }}</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-700 mt-1">Bahaya</p>
+                </div>
+                <div class="px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-center min-w-[78px]">
+                    <p class="text-[20px] font-bold text-amber-600 leading-none">{{ $ringkasan['WASPADA'] }}</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-700 mt-1">Waspada</p>
+                </div>
+                <div class="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-center min-w-[78px]">
+                    <p class="text-[20px] font-bold text-emerald-600 leading-none">{{ $ringkasan['AMAN'] }}</p>
+                    <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 mt-1">Aman</p>
+                </div>
+            </div>
         </div>
 
         <!-- Legend Badges -->
         <div class="flex flex-wrap gap-3">
             <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Aman (Posko)
+                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Node Aman
             </div>
             <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-amber-500"></span> Waspada
+                <span class="w-3 h-3 rounded-full bg-amber-500"></span> Node Waspada
             </div>
             <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-rose-500"></span> Bahaya
+                <span class="w-3 h-3 rounded-full bg-rose-500"></span> Node Bahaya
             </div>
             <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-4 h-0.5 bg-rose-500 border-t-2 border-dashed border-rose-500"></span> Rute Evakuasi Jalan
+                <span class="w-3 h-3 rounded-full bg-slate-400"></span> Belum ada data
+            </div>
+            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
+                <span class="w-3.5 h-3.5 rounded bg-blue-600 text-white text-[8px] font-bold flex items-center justify-center">P</span> Posko Evakuasi
+            </div>
+            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
+                <span class="w-5 border-t-2 border-dashed border-blue-600"></span> Rute Evakuasi
             </div>
         </div>
 
-        <!-- Map Container -->
-        <div class="card p-2"><div id="map"></div></div>
-
-        @php $canManage = auth()->user()?->can('kelola-data') ?? false; @endphp
-
-        @if(session('success'))
-        <div class="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-semibold px-4 py-3 rounded-xl">{{ session('success') }}</div>
-        @endif
-        @if($errors->any())
-        <div class="bg-rose-50 border border-rose-200 text-rose-700 text-xs px-4 py-3 rounded-xl">
-            <p class="font-bold mb-1">Data node belum tersimpan:</p>
-            <ul class="list-disc list-inside">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
+        <!-- Container Peta Evakuasi -->
+        <div class="card p-2 bg-white shadow-card rounded-2xl border border-air-200">
+            <div id="map"></div>
         </div>
-        @endif
 
         <!-- Detail Node Cards -->
         <div class="flex items-center justify-between gap-3">
             <div>
                 <h3 class="font-bold text-deep-900 text-[18px]">Node Sensor</h3>
-                <p class="text-[13px] text-deep-500">Status risiko, baterai, dan lokasi tiap node</p>
+                <p class="text-[13px] text-deep-500">Status risiko dan lokasi tiap node</p>
             </div>
-            @if($canManage)
+            @if(isset($canManage) && $canManage)
             <button type="button" onclick="openNodeForm(null)" class="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-[13px] font-semibold font-heading transition">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
                 Tambah Node
@@ -1016,13 +1042,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
                     default => ['bg-slate-100', 'border-air-300', 'text-slate-600', 'bg-slate-400'],
                 };
                 $statusLabel = match (strtoupper($node->status)) { 'UNKNOWN' => 'BELUM ADA DATA', 'PENDING' => 'MENUNGGU ANALISIS', default => strtoupper($node->status) };
-                $bat = $node->battery;
-                $batColor = $bat === null ? 'bg-slate-300' : ($bat >= 50 ? 'bg-emerald-500' : ($bat >= 20 ? 'bg-amber-500' : 'bg-rose-500'));
-                $batText  = $bat === null ? 'text-slate-400' : ($bat >= 50 ? 'text-emerald-700' : ($bat >= 20 ? 'text-amber-700' : 'text-rose-700'));
             @endphp
             <div class="bg-white rounded-xl border {{ $statusColor[1] }} shadow-card p-5 hover:shadow-lift hover:-translate-y-0.5 transition flex flex-col">
                 <div class="flex items-center justify-between mb-2">
-                    <h4 class="font-bold text-deep-900 text-[16px] font-heading">{{ $node->node_name }}</h4>
+                    <h4 class="font-bold text-deep-900 text-[16px] font-heading">{{ $node->node_name }} <span class="text-[11px] font-mono font-semibold text-deep-400">{{ $node->node_code }}</span></h4>
                     <span class="flex items-center gap-1.5 text-[10px] font-bold font-mono tracking-wide {{ $statusColor[2] }} {{ $statusColor[0] }} px-2 py-0.5 rounded-full">
                         <span class="w-1.5 h-1.5 rounded-full {{ $statusColor[3] }}"></span>
                         {{ $statusLabel }}
@@ -1032,31 +1055,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 @if($node->notes)
                 <p class="text-[13px] text-deep-600 mt-2 leading-relaxed">{{ $node->notes }}</p>
                 @endif
-
-                <!-- Power monitoring -->
-                <div class="mt-auto pt-3 border-t border-air-200 flex items-center gap-3">
-                    <div class="flex items-center gap-1" title="Baterai">
-                        <div class="relative w-9 h-[18px] rounded-[4px] border-2 border-slate-400 p-[2px]">
-                            <div class="h-full rounded-[2px] {{ $batColor }}" style="width: {{ $bat === null ? 0 : max(4, min(100, $bat)) }}%"></div>
-                        </div>
-                        <div class="w-[3px] h-2 rounded-r-sm bg-slate-400"></div>
-                    </div>
-                    <div class="min-w-0 flex-1">
-                        @if($bat !== null)
-                            <p class="text-sm font-bold font-mono {{ $batText }} leading-tight">{{ $bat }}%@if($node->voltage) <span class="text-[11px] font-medium text-slate-400">· {{ number_format($node->voltage, 2) }} V</span>@endif</p>
-                            <p class="text-[10px] text-slate-400">Update {{ $node->battery_at }}@if($bat < 20) · <span class="font-bold text-rose-600">segera isi daya</span>@endif</p>
-                        @else
-                            <p class="text-xs font-semibold text-slate-400 leading-tight">Belum ada data baterai</p>
-                            <p class="text-[10px] text-slate-400">Menunggu kiriman dari node</p>
-                        @endif
-                    </div>
-                    @if($canManage)
-                    <button type="button" onclick='openNodeForm(@json($node))' class="shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-air-300 text-[11px] font-bold text-teal-700 hover:bg-air-100 transition">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-6 8-12a8 8 0 1 0-16 0c0 6 8 12 8 12z"/><circle cx="12" cy="10" r="3"/></svg>
-                        Edit lokasi
-                    </button>
-                    @endif
-                </div>
+                @if($node->last_at)
+                <dl class="gap-2 mt-3 text-center" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr))">
+                    <div class="bg-air-50 rounded-lg py-1.5"><dt class="text-[9px] uppercase text-deep-400 font-semibold">Dangkal</dt><dd class="text-[13px] font-bold text-deep-800">{{ $node->moisture !== null ? $node->moisture.'%' : '-' }}</dd></div>
+                    <div class="bg-air-50 rounded-lg py-1.5"><dt class="text-[9px] uppercase text-deep-400 font-semibold">Dalam</dt><dd class="text-[13px] font-bold text-deep-800">{{ $node->moisture_deep !== null ? $node->moisture_deep.'%' : '-' }}</dd></div>
+                    <div class="bg-air-50 rounded-lg py-1.5"><dt class="text-[9px] uppercase text-deep-400 font-semibold">Hujan</dt><dd class="text-[13px] font-bold text-deep-800">{{ $node->rain !== null ? $node->rain.' mm' : '-' }}</dd></div>
+                    <div class="bg-air-50 rounded-lg py-1.5"><dt class="text-[9px] uppercase text-deep-400 font-semibold">Miring</dt><dd class="text-[13px] font-bold text-deep-800">{{ $node->tilt !== null ? $node->tilt.'°' : '-' }}</dd></div>
+                </dl>
+                @endif
+        
             </div>
             @empty
             <div class="col-span-full bg-white rounded-xl border border-dashed border-air-300 p-8 text-center text-sm text-deep-400">
@@ -1065,7 +1072,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             @endforelse
         </div>
 
-        @if($canManage)
+        @if(isset($canManage) && $canManage)
         <!-- Modal form koordinat node (hanya Admin & Kader) -->
         <div id="nodeModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-deep-900/40 px-4" role="dialog" aria-modal="true" aria-labelledby="nodeModalTitle">
             <form id="nodeForm" method="POST" action="{{ route('nodes.store') }}" class="w-full max-w-md bg-white rounded-xl border border-air-300 shadow-float p-6 space-y-4">
@@ -1128,6 +1135,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
         @endif
 
+        @if(isset($canManage) && $canManage)
+        <div class="bg-white border border-air-300 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-card">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-200">🚧</div>
+                <div>
+                    <h4 class="font-bold text-deep-900 text-sm">Laporkan Hambatan / Penutupan Jalan</h4>
+                    <p class="text-xs text-deep-500">Bantu warga menghindari jalan rusak, longsor, atau penutupan jalur evakuasi.</p>
+                </div>
+            </div>
+            <button type="button" onclick="openRoadModal()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition shadow-sm flex items-center gap-2">
+                <span>Laporkan Kondisi Jalan</span>
+            </button>
+        </div>
+        @endif
         <!-- Section Sistem Check-in Warga Posko -->
         <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -1321,11 +1342,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
             return body;
         }
 
-        const map = L.map('map').setView([-7.66744, 112.53658], 13);
+        const POSKO = @json($daftarPosko);
+        const WILAYAH = @json($wilayah);
+        const map = L.map('map').setView(WILAYAH.center, WILAYAH.zoom);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-            maxZoom: 18,
+            maxZoom: 19,
         }).addTo(map);
 
         const statusColor = (status) => {
@@ -1336,7 +1359,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             return '#94a3b8';
         };
 
-        function makeIcon(color) {
+                function makeIcon(color) {
             return L.divIcon({
                 className: '',
                 html: `<div style="background:${color}; width:18px; height:18px; border-radius:50%; border:3px solid white; box-shadow:0 1px 4px rgba(0,0,0,0.4);"></div>`,
@@ -1345,23 +1368,147 @@ svg.leaflet-image-layer.leaflet-interactive path {
             });
         }
 
-        // Plot Marker Node di Peta
-        nodes.forEach(node => {
-            const lat = parseFloat(node.lat);
-            const lng = parseFloat(node.lng);
+        // Titik node: lingkaran berwarna status + label kode node; BAHAYA berdenyut
+        function nodeIcon(node) {
             const color = statusColor(node.status);
+            const pulse = node.status === 'BAHAYA'
+                ? `<span style="position:absolute;inset:-9px;border-radius:50%;background:${color};opacity:.35;animation:larasPulse 1.6s ease-out infinite"></span>` : '';
+            return L.divIcon({
+                className: '',
+                html: `<div style="position:relative;width:22px;height:22px">${pulse}
+                         <div style="position:relative;background:${color};width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45)"></div>
+                         <span style="position:absolute;left:26px;top:2px;white-space:nowrap;font:700 11px Inter,sans-serif;color:#0f172a;background:rgba(255,255,255,.9);padding:1px 6px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.2)">${esc(node.node_code)}</span>
+                       </div>`,
+                iconSize: [22, 22],
+                iconAnchor: [11, 11],
+                popupAnchor: [0, -12],
+            });
+        }
 
-            const marker = L.marker([lat, lng], { icon: makeIcon(color) }).addTo(map);
-            marker.bindPopup(`
-                <div style="font-family: Inter, sans-serif; min-width: 160px;">
-                    <p style="font-weight:700; font-size:13px; margin-bottom:2px;">${esc(node.node_name)}</p>
-                    <p style="font-size:11px; color:#64748b; margin-bottom:4px;">${esc(node.desa || '')}</p>
-                    <span style="font-size:10px; font-weight:700; color:${color}; text-transform:uppercase;">${node.status === 'UNKNOWN' ? 'Belum ada data' : node.status}</span>
-                    <p style="font-size:11px; color:#475569; margin-top:4px;">Baterai: <b>${node.battery === null ? '-' : node.battery + '%'}</b></p>
-                </div>
-            `);
+        function poskoIcon() {
+            return L.divIcon({
+                className: '',
+                html: `<div style="background:#2563eb;color:#fff;width:32px;height:32px;border-radius:10px;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px;" title="Posko Evakuasi">🏠</div>`,
+                iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16],
+            });
+        }
+
+// Tambahkan juga fungsi icon untuk laporan hambatan jalan (Waze-style hazard)
+            function hazardIcon(type) {
+                let symbol = '🚧';
+                if (type.includes('Perbaikan')) symbol = '🛠️';
+                if (type.includes('Genangan')) symbol = '🌊';
+                if (type.includes('Alternatif')) symbol = '🟢';
+                return L.divIcon({
+                    className: '',
+                    html: `<div style="background:#b45309;color:#fff;width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${symbol}</div>`,
+                    iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
+                });
+            }
+
+        const fmt = (v, u) => (v === null || v === undefined) ? '-' : `${v}${u}`;
+
+        // Plot titik node
+        const mapNodes = nodes.filter(n => !isNaN(parseFloat(n.lat)) && !isNaN(parseFloat(n.lng)));
+        mapNodes.forEach(node => {
+            const color = statusColor(node.status);
+            L.marker([parseFloat(node.lat), parseFloat(node.lng)], { icon: nodeIcon(node), zIndexOffset: node.status === 'BAHAYA' ? 1000 : 0 })
+                .addTo(map)
+                .bindPopup(`
+                <div style="font-family: Inter, sans-serif; min-width: 190px;">
+                    <p style="font-weight:700; font-size:13px; margin:0 0 2px;">${esc(node.node_name)} <span style="color:#94a3b8;font-weight:600">${esc(node.node_code)}</span></p>
+                    <p style="font-size:11px; color:#64748b; margin:0 0 6px;">Desa ${esc(node.desa || '-')}</p>
+                    <span style="font-size:10px; font-weight:700; color:#fff; background:${color}; padding:2px 8px; border-radius:999px; text-transform:uppercase;">${esc(node.status_label)}</span>
+                    <table style="font-size:11px; color:#334155; margin-top:8px; width:100%;">
+                        <tr><td>Tanah dangkal</td><td style="text-align:right"><b>${fmt(node.moisture, '%')}</b></td></tr>
+                        <tr><td>Tanah dalam</td><td style="text-align:right"><b>${fmt(node.moisture_deep, '%')}</b></td></tr>
+                        <tr><td>Curah hujan</td><td style="text-align:right"><b>${fmt(node.rain, ' mm')}</b></td></tr>
+                        <tr><td>Kemiringan</td><td style="text-align:right"><b>${fmt(node.tilt, '°')}</b></td></tr>
+                    </table>
+                    <p style="font-size:10px; color:#94a3b8; margin:6px 0 0;">Data terakhir: ${node.last_at ? esc(node.last_at) : '-'}</p>
+                </div>`);
         });
 
+
+        // Load laporan hambatan jalan
+        let hazardReports = JSON.parse(localStorage.getItem('laras_hazards') || '[]');
+        hazardReports.forEach(h => addHazardMarker(h));
+
+        function addHazardMarker(h) {
+            L.marker([h.lat, h.lng], { icon: hazardIcon(h.type) })
+                .addTo(map)
+                .bindPopup(`
+                <div style="font-family: Inter, sans-serif; min-width: 170px;">
+                    <p style="font-weight:700; font-size:13px; color:#b45309; margin:0 0 2px;">⚠️ ${esc(h.type)}</p>
+                    <p style="font-size:11px; color:#64748b; margin:0 0 6px;">${esc(h.desc || 'Tanpa keterangan.')}</p>
+                    <span style="font-size:9px; color:#94a3b8;">Dilaporkan oleh Petugas</span>
+                </div>`);
+        }
+
+        // Plot posko evakuasi
+        POSKO.forEach(p => {
+            L.marker([p.lat, p.lng], { icon: poskoIcon(), zIndexOffset: 500 })
+                .addTo(map)
+                .bindPopup(`
+                <div style="font-family: Inter, sans-serif; min-width: 170px;">
+                    <p style="font-weight:700; font-size:13px; margin:0 0 2px;">${esc(p.nama)}</p>
+                    <p style="font-size:11px; color:#64748b; margin:0;">${esc(p.lokasi)}</p>
+                    ${p.kapasitas ? `<p style="font-size:11px; color:#334155; margin:6px 0 0;">Kapasitas: <b>${p.kapasitas} orang</b></p>` : ''}
+                    <a href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;font-size:11px;font-weight:700;color:#2563eb">Petunjuk arah</a>
+                </div>`);
+        });
+
+        // Rute evakuasi: tiap node WASPADA/BAHAYA ke posko terdekat (mengikuti jalan, OSRM).
+        // Bila layanan rute tidak tersedia, ditarik garis lurus putus-putus sebagai cadangan.
+        const nearestPosko = (lat, lng) => POSKO.reduce((best, p) => {
+            const d = map.distance([lat, lng], [p.lat, p.lng]);
+            return !best || d < best.d ? { p, d } : best;
+        }, null);
+
+        mapNodes.filter(n => n.status === 'BAHAYA' || n.status === 'WASPADA').forEach(node => {
+            const lat = parseFloat(node.lat), lng = parseFloat(node.lng);
+            const near = nearestPosko(lat, lng);
+            if (!near) return;
+            const color = node.status === 'BAHAYA' ? '#e11d48' : '#f59e0b';
+            const ctrl = L.Routing.control({
+                waypoints: [L.latLng(lat, lng), L.latLng(near.p.lat, near.p.lng)],
+                lineOptions: { styles: [{ color: '#2563eb', opacity: 0.85, weight: 5, dashArray: '8, 8' }], addWaypoints: false },
+                createMarker: () => null,
+                addWaypoints: false,
+                draggableWaypoints: false,
+                fitSelectedRoutes: false,
+                show: false,
+            }).addTo(map);
+            ctrl.on('routingerror', () => {
+                L.polyline([[lat, lng], [near.p.lat, near.p.lng]], { color, weight: 4, opacity: 0.8, dashArray: '6, 8' }).addTo(map);
+            });
+        });
+
+        @if(isset($canManage) && $canManage)
+// Membuat Custom Control Leaflet untuk tombol lapor hambatan di dalam peta
+        const LaporJalanControl = L.Control.extend({
+            options: { position: 'topright' },
+            onAdd: function (map) {
+                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+                const btn = L.DomUtil.create('a', 'waze-control-btn', container);
+                btn.innerHTML = '🚧 Lapor Jalan';
+                btn.title = 'Laporkan jalan longsor / ditutup';
+                btn.href = '#';
+                
+                L.DomEvent.on(btn, 'click', function (e) {
+                    L.DomEvent.stopPropagation(e);
+                    L.DomEvent.preventDefault(e);
+                    openRoadModal(); // Membuka modal input laporan jalan
+                });
+                
+                return container;
+            }
+        });
+        map.addControl(new LaporJalanControl());
+        @endif
+
+
+        
         // ===== Form koordinat node (hanya Admin & Kader) =====
         let pickMarker = null, picking = false;
         const nodeModal = document.getElementById('nodeModal');
@@ -1456,39 +1603,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
             @endif
         }
 
-        // Routing Realistis Mengikuti Kontur Jalan
-        L.Routing.control({
-            waypoints: [
-                L.latLng(-7.69100, 112.54100), // Node-01 Padusan (Bahaya)
-                L.latLng(-7.67500, 112.53500), // Node-02 Sajen
-                L.latLng(-7.66200, 112.54000), // Node-03 Claket
-                L.latLng(-7.65200, 112.52900)  // Node-04 Posko Cepokolimo (Aman)
-            ],
-            lineOptions: {
-                styles: [{ color: '#e11d48', opacity: 0.85, weight: 5, dashArray: '8, 8' }]
-            },
-            createMarker: function() { return null; },
-            addWaypoints: false,
-            draggableWaypoints: false
-        }).addTo(map);
 
-        L.Routing.control({
-            waypoints: [
-                L.latLng(-7.66200, 112.54000), // Node-03 Claket
-                L.latLng(-7.64400, 112.54700)  // Node-05 Kembangbelor (Aman)
-            ],
-            lineOptions: {
-                styles: [{ color: '#10b981', opacity: 0.85, weight: 5 }]
-            },
-            createMarker: function() { return null; },
-            addWaypoints: false,
-            draggableWaypoints: false
-        }).addTo(map);
-
-        if (nodes.length > 0) {
-            const bounds = L.latLngBounds(nodes.map(n => [parseFloat(n.lat), parseFloat(n.lng)]));
-            map.fitBounds(bounds, { padding: [40, 40] });
-        }
+               // Tampilkan semua node + posko desa dalam satu layar
+        const pts = mapNodes.map(n => [parseFloat(n.lat), parseFloat(n.lng)]).concat(POSKO.map(p => [p.lat, p.lng]));
+        if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [50, 50], maxZoom: 17 });
 
         // ===== Fitur check-in (hanya dirender untuk Admin & Kader) =====
         const selectPosko = document.getElementById('selectPosko');
@@ -1592,5 +1710,74 @@ svg.leaflet-image-layer.leaflet-interactive path {
             .catch(err => console.error(err));
         }
     </script>
-</body>
+            @if(isset($canManage) && $canManage)
+        <div id="roadModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-deep-900/40 px-4">
+            <form id="roadForm" class="w-full max-w-md bg-white rounded-xl border border-air-300 shadow-float p-6 space-y-4">
+                @csrf
+                <div class="flex items-center justify-between border-b border-air-200 pb-3">
+                    <h3 class="font-bold text-deep-900 text-[17px]">Laporkan Hambatan / Jalan</h3>
+                    <button type="button" onclick="closeRoadModal()" class="text-slate-500 hover:text-slate-800 font-bold text-xl">&times;</button>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Hambatan</label>
+                    <select id="road_type" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                        <option value="Jalan Ditutup / Longsor">🚧 Jalan Ditutup / Tertimbun Longsor</option>
+                        <option value="Perbaikan Jalan">🛠️ Perbaikan / Perawatan Jalan</option>
+                        <option value="Genangan Air / Banjir">🌊 Genangan Air / Rawan Licin</option>
+                        <option value="Akses Alternatif Aman">🟢 Jalur Alternatif Aman</option>
+                    </select>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Latitude</label>
+                        <input type="number" step="0.000001" id="road_lat" required placeholder="-7.691000" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs font-mono">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Longitude</label>
+                        <input type="number" step="0.000001" id="road_lng" required placeholder="112.541000" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs font-mono">
+                    </div>
+                </div>
+                <button type="button" onclick="pickRoadOnMap()" class="w-full py-2 bg-air-100 hover:bg-air-200 text-teal-700 rounded-lg text-xs font-bold transition">
+                    📍 Pilih Titik Hambatan di Peta
+                </button>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Keterangan Tambahan</label>
+                    <textarea id="road_desc" rows="2" placeholder="Contoh: Material longsor menutup jalur..." class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"></textarea>
+                </div>
+                <div class="flex justify-end gap-2 pt-1">
+                    <button type="button" onclick="closeRoadModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">Batal</button>
+                    <button type="submit" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold">Kirim Laporan</button>
+                </div>
+            </form>
+        </div>
+        <script>
+            let roadModal = document.getElementById('roadModal');
+            function openRoadModal() { roadModal.classList.remove('hidden'); roadModal.classList.add('flex'); }
+            function closeRoadModal() { roadModal.classList.add('hidden'); roadModal.classList.remove('flex'); }
+            function pickRoadOnMap() {
+                closeRoadModal();
+                alert('Klik lokasi titik hambatan di peta.');
+                map.once('click', e => {
+                    document.getElementById('road_lat').value = e.latlng.lat.toFixed(6);
+                    document.getElementById('road_lng').value = e.latlng.lng.toFixed(6);
+                    openRoadModal();
+                });
+            }
+            document.getElementById('roadForm')?.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const newH = { type: document.getElementById('road_type').value, lat: parseFloat(document.getElementById('road_lat').value), lng: parseFloat(document.getElementById('road_lng').value), desc: document.getElementById('road_desc').value };
+                hazardReports.push(newH);
+                localStorage.setItem('laras_hazards', JSON.stringify(hazardReports));
+                addHazardMarker(newH);
+                closeRoadModal();
+                this.reset();
+                alert('Laporan berhasil disiarkan ke peta warga!');
+            });
+        </script>
+        @endif
+
+        <!-- Leaflet JS & Leaflet Routing Machine (Pastikan CDN ini ada di bagian bawah sebelum penutup </body>) -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+</body> 
 </html>

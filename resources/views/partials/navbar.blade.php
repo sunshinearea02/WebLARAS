@@ -13,6 +13,13 @@
     $item   = 'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold transition';
     $idle   = 'text-deep-700 hover:text-teal-700 hover:bg-air-100';
     $on     = 'text-teal-700 bg-air-100 border-l-4 border-teal-500';
+
+    // Jumlah peringatan yang menunggu verifikasi kader (hanya untuk petugas)
+    $pendingVerif = 0;
+    if (auth()->check() && auth()->user()->isStaff()) {
+        try { $pendingVerif = \App\Models\AlertVerification::where('state', 'pending')->count(); } catch (\Throwable $e) {}
+    }
+
 @endphp
 
 <style>section[id] { scroll-margin-top: 84px; }</style>
@@ -56,6 +63,11 @@
             <a href="tel:112" class="hidden md:inline-flex lg:hidden xl:inline-flex items-center gap-1.5 px-2 py-2 text-[14px] font-semibold text-rose-600 hover:text-rose-700 whitespace-nowrap">
                 <span class="material-symbols-outlined text-[20px]">emergency</span> Darurat 112
             </a>
+             @if($pendingVerif > 0)
+                <a href="{{ route('verifikasi.index') }}" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-rose-600 hover:bg-rose-700 text-white text-[13px] font-bold animate-pulse whitespace-nowrap">
+                    <span class="material-symbols-outlined text-[18px]">notification_important</span>{{ $pendingVerif }} perlu verifikasi
+                </a>
+            @endif
             @auth
                 <div class="hidden md:block text-right leading-tight">
                     <p class="text-[13px] font-semibold text-deep-900 max-w-[140px] truncate">{{ Auth::user()->name }}</p>
@@ -112,6 +124,12 @@
         <a href="/#peran" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">groups</span>Peran Pengguna</a>
         <a href="/#developers" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">badge</span>Tim Pengembang</a>
 
+      @can('kelola-data')
+            <p class="px-3 pt-4 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Kader</p>
+            <a href="{{ route('verifikasi.index') }}" class="{{ $item }} {{ $active === 'verifikasi' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">verified_user</span>Verifikasi Peringatan
+                @if($pendingVerif > 0)<span class="ml-auto px-2 py-0.5 rounded-full bg-rose-600 text-white text-[11px]">{{ $pendingVerif }}</span>@endif
+            </a>
+        @endcan
         @can('kelola-akun')
             <p class="px-3 pt-4 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Admin</p>
             <a href="{{ route('register') }}" class="{{ $item }} {{ $active === 'petugas' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">person_add</span>Kelola Petugas</a>

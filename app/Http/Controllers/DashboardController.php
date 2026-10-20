@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\SensorLog;
 use App\Models\TelegramAlertLog;
 use App\Services\TelegramAlertService;
+use App\Services\WhatsAppAlertService;
 use Illuminate\Support\Facades\Http;
 
 class DashboardController extends Controller
@@ -30,7 +31,7 @@ class DashboardController extends Controller
         } catch (\Exception $e) {
             $weatherInfo['condition'] = 'Gagal memuat cuaca';
         }
-        
+
         // Ringkasan node & posko untuk Beranda (sama dengan halaman Peta Evakuasi)
         $map    = app(EvacuationMapController::class);
         $nodes  = $map->nodesForMap();
@@ -73,10 +74,16 @@ class DashboardController extends Controller
             ]);
         }
 
+        // WhatsApp (GoWA): cadangan bila scheduler belum jalan. Dibatasi 1x per 15 detik.
+        try {
+            app(WhatsAppAlertService::class)->evaluateThrottled();
+        } catch (\Throwable $e) {
+            report($e); // notifikasi gagal tidak boleh membuat dashboard error
+        }
+
         return response()->json($current);
     }
 
-    
     public function getSince(\Illuminate\Http\Request $request)
     {
         $lastId = (int) $request->query('last_id', 0);

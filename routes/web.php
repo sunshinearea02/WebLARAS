@@ -7,7 +7,22 @@ use App\Http\Controllers\LandscapeController;
 use App\Http\Controllers\EvacuationMapController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SensorNodeController;
+use App\Http\Controllers\VerifikasiController;
 
+
+    // Verifikasi peringatan oleh kader sebelum dikirim ke warga
+    Route::get('/verifikasi-peringatan', [VerifikasiController::class, 'index'])->name('verifikasi.index');
+    Route::post('/verifikasi-peringatan/{verification}/kirim', [VerifikasiController::class, 'approve'])->name('verifikasi.approve');
+    Route::post('/verifikasi-peringatan/{verification}/tolak', [VerifikasiController::class, 'reject'])->name('verifikasi.reject');
+    Route::post('/verifikasi-peringatan/warga', [VerifikasiController::class, 'storeWarga'])->name('verifikasi.warga.store');
+    Route::delete('/verifikasi-peringatan/warga/{contact}', [VerifikasiController::class, 'destroyWarga'])->name('verifikasi.warga.destroy');
+
+    
+// Otomasi n8n: pemeriksaan peringatan berkala (dilindungi header X-LARAS-Token = N8N_TOKEN)
+Route::post('/api/n8n/alert-tick', [AutomationController::class, 'alertTick'])
+    ->middleware('throttle:30,1')
+    ->name('n8n.alert-tick');
+    
 // --- RUTE PUBLIK (Warga / Guest boleh LIHAT saja) ---
 Route::get('/', [DashboardController::class, 'index']);
 Route::get('/api/sensor-now', [DashboardController::class, 'getLatestData']);
@@ -15,7 +30,7 @@ Route::get('/api/sensor-since', [DashboardController::class, 'getSince']);
 Route::get('/api/status-history', [DashboardController::class, 'getStatusHistory']);
 Route::get('/api/forecast-history', [DashboardController::class, 'getForecastHistory']);
 Route::get('/api/weather-bmkg', [DashboardController::class, 'getWeather']);
-Route::post('/api/chatbot', [ChatbotController::class, 'chat']);
+Route::post('/api/chatbot', [ChatbotController::class, 'chat'])->middleware('throttle:20,1');
 
 Route::get('/lanskap', [LandscapeController::class, 'index'])->name('lanskap.index');
 Route::get('/peta-evakuasi', [EvacuationMapController::class, 'index'])->name('peta-evakuasi.index');

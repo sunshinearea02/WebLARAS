@@ -1,0 +1,14 @@
+# File yang TIDAK di-upload ke Vercel
+/vendor
+/node_modules
+.env
+.env.*
+!.env.example
+/storage/logs/*
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/tests
+/.phpunit.cache
+*.patch
+*.bat
