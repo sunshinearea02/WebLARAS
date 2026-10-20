@@ -8,16 +8,9 @@ use App\Http\Controllers\EvacuationMapController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SensorNodeController;
 use App\Http\Controllers\VerifikasiController;
+use App\Http\Controllers\AutomationController;
 
 
-    // Verifikasi peringatan oleh kader sebelum dikirim ke warga
-    Route::get('/verifikasi-peringatan', [VerifikasiController::class, 'index'])->name('verifikasi.index');
-    Route::post('/verifikasi-peringatan/{verification}/kirim', [VerifikasiController::class, 'approve'])->name('verifikasi.approve');
-    Route::post('/verifikasi-peringatan/{verification}/tolak', [VerifikasiController::class, 'reject'])->name('verifikasi.reject');
-    Route::post('/verifikasi-peringatan/warga', [VerifikasiController::class, 'storeWarga'])->name('verifikasi.warga.store');
-    Route::delete('/verifikasi-peringatan/warga/{contact}', [VerifikasiController::class, 'destroyWarga'])->name('verifikasi.warga.destroy');
-
-    
 // Otomasi n8n: pemeriksaan peringatan berkala (dilindungi header X-LARAS-Token = N8N_TOKEN)
 Route::post('/api/n8n/alert-tick', [AutomationController::class, 'alertTick'])
     ->middleware('throttle:30,1')
@@ -35,8 +28,7 @@ Route::post('/api/chatbot', [ChatbotController::class, 'chat'])->middleware('thr
 Route::get('/lanskap', [LandscapeController::class, 'index'])->name('lanskap.index');
 Route::get('/peta-evakuasi', [EvacuationMapController::class, 'index'])->name('peta-evakuasi.index');
 Route::get('/peta-evakuasi/checkins', [EvacuationMapController::class, 'getCheckins'])->name('peta-evakuasi.checkins-list');
-Route::post('/nodes', [SensorNodeController::class, 'store'])->name('nodes.store');
-Route::put('/nodes/{node}', [SensorNodeController::class, 'update'])->name('nodes.update');
+
 // --- OTENTIKASI ---
 Route::middleware('guest')->group(function () {
     Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -68,4 +60,15 @@ Route::middleware(['auth', 'role:admin,kader'])->group(function () {
     // Check-in Warga di Posko
     Route::post('/peta-evakuasi/checkin', [EvacuationMapController::class, 'storeCheckin'])->name('peta-evakuasi.checkin');
     Route::delete('/peta-evakuasi/checkin/{id}', [EvacuationMapController::class, 'destroyCheckin'])->name('peta-evakuasi.checkin.destroy');
+
+    // Node sensor: tambah / ubah koordinat GPS
+    Route::post('/nodes', [SensorNodeController::class, 'store'])->name('nodes.store');
+    Route::put('/nodes/{node}', [SensorNodeController::class, 'update'])->name('nodes.update');
+
+    // Verifikasi peringatan oleh kader + kelola nomor WA warga (berisi nomor HP: wajib login)
+    Route::get('/verifikasi-peringatan', [VerifikasiController::class, 'index'])->name('verifikasi.index');
+    Route::post('/verifikasi-peringatan/{verification}/kirim', [VerifikasiController::class, 'approve'])->name('verifikasi.approve');
+    Route::post('/verifikasi-peringatan/{verification}/tolak', [VerifikasiController::class, 'reject'])->name('verifikasi.reject');
+    Route::post('/verifikasi-peringatan/warga', [VerifikasiController::class, 'storeWarga'])->name('verifikasi.warga.store');
+    Route::delete('/verifikasi-peringatan/warga/{contact}', [VerifikasiController::class, 'destroyWarga'])->name('verifikasi.warga.destroy');
 });
