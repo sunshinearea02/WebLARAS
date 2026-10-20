@@ -21,6 +21,11 @@ return Application::configure(basePath: dirname(__DIR__))
         // petugas yang sudah login dan membuka /login diarahkan ke Data Lanskap.
         $middleware->redirectGuestsTo(fn () => route('login'));
         $middleware->redirectUsersTo('/');
+        $middleware->validateCsrfTokens(except: ['api/n8n/*']);
+
+        // Di Vercel (dan hosting lain di balik proxy) request asli memakai HTTPS.
+        // Tanpa ini Laravel membuat URL http:// sehingga form & link bisa gagal.
+        $middleware->trustProxies(at: '*');
     })
     ->withExceptions(function (Exceptions $exceptions) {
         //

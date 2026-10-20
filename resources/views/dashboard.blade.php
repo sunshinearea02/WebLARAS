@@ -989,9 +989,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
         const phpLogs    = @json($logs);
         const phpCurrent = @json($current ?? null);
         const phpWeather = @json($weatherInfo ?? 'N/A');
+        // jam server (zona waktu aplikasi) untuk menghitung "diperbarui X menit lalu" dengan benar
+        const SERVER_NOW_MS = new Date(@json(now()->format('Y-m-d\TH:i:s'))).getTime();
+        const CLOCK_SKEW_MS = isNaN(SERVER_NOW_MS) ? 0 : Date.now() - SERVER_NOW_MS;
     </script>
 </head>
-<body class="bg-white antialiased text-deep-900 overflow-x-hidden">
+<body class="bg-white antialiased text-deep-900 overflow-x-hidden" data-default-view="{{ auth()->check() ? 'teknis' : 'warga' }}">
 
     @include('partials.navbar', ['active' => 'home'])
 
@@ -1119,7 +1122,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                                 ['water_drop', 'Kelembapan dangkal', $current ? number_format($current->soil_moisture ?? 0, 1) : '–', '%'],
                                 ['layers', 'Kelembapan dalam', $current ? number_format($current->moisture_percent_deep ?? 0, 1) : '–', '%'],
                                 ['rainy', 'Curah hujan', $current ? number_format($current->rainfall_mm ?? 0, 1) : '–', 'mm/jam'],
-                                ['battery_5_bar', 'Baterai node', ($current && $current->battery_percent !== null) ? (int) $current->battery_percent : '–', '%'],
+                               
                             ];
                         @endphp
                         @foreach($mini as [$ic, $lb, $val, $unit])
@@ -1184,7 +1187,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             @foreach(array_slice($nodes, 0, 4) as $node)
                 @php
-                    // aman walau EvacuationMapController versi lama (tanpa status_label / baterai)
+                    
                     $st  = strtoupper($node->status ?? 'UNKNOWN');
                     $node->status_label = $node->status_label ?? $labelOf($st);
                     foreach (['battery', 'battery_at', 'notes', 'desa', 'node_name'] as $f) { $node->$f = $node->$f ?? null; }
@@ -1204,14 +1207,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                     @if($node->notes)
                         <p class="text-[13px] text-deep-600 leading-relaxed line-clamp-2">{{ $node->notes }}</p>
                     @endif
-                    <div class="mt-auto pt-3 border-t border-air-200">
-                        <div class="flex items-center justify-between text-[12px] font-mono">
-                            <span class="text-deep-500 inline-flex items-center gap-1"><span class="material-symbols-outlined text-[16px]">battery_horiz_075</span>Baterai</span>
-                            <span class="font-semibold text-deep-900">{{ $bat === null ? '–' : $bat . '%' }}</span>
-                        </div>
-                        <div class="mt-1.5 h-1.5 rounded-full bg-slate-100 overflow-hidden"><div class="h-full rounded-full {{ $batColor }}" style="width: {{ $bat === null ? 0 : max(3, min(100, $bat)) }}%"></div></div>
-                        <p class="mt-1.5 text-[11px] text-deep-400">{{ $node->battery_at ? 'Update ' . $node->battery_at : 'Belum ada kiriman data' }}</p>
-                    </div>
+                   
                 </div>
             @endforeach
         </div>
@@ -1551,7 +1547,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 nodes.forEach(n => {
                     const c = colors[n.status] || '#94A3B8';
                     L.circleMarker([n.lat, n.lng], { radius: 9, color: '#fff', weight: 2, fillColor: c, fillOpacity: 1 }).addTo(map)
-                        .bindPopup(`<b>${esc(n.node_name || n.node_code)}</b><br>${esc(n.desa || '')}<br>Status: <b>${esc(n.status_label)}</b>` + (n.battery !== null ? `<br>Baterai: ${esc(n.battery)}%` : ''));
+                        .bindPopup(`<b>${esc(n.node_name || n.node_code)}</b><br>${esc(n.desa || '')}<br>Status: <b>${esc(n.status_label)}</b>`);
                     pts.push([n.lat, n.lng]);
                 });
                 posko.forEach(p => {
@@ -1570,10 +1566,139 @@ svg.leaflet-image-layer.leaflet-interactive path {
 <div id="dashboard-page" style="display:none;">
 
 
-    <main class="container mx-auto p-4 md:p-6 max-w-7xl">
+    <main class="max-w-[1200px] mx-auto px-4 sm:px-6 py-6 md:py-8">
+        <div class="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+            <div>
+                <span class="section-tag">Live Monitoring</span>
+                <h1 class="mt-1 text-[1.6rem] sm:text-[1.9rem] font-bold text-deep-900">Pantauan Lereng Pacet</h1>
+            </div>
+            <div class="inline-flex self-start sm:self-auto p-1 rounded-xl bg-air-100 border border-air-300" role="group" aria-label="Pilih tampilan">
+                <button type="button" data-view-btn="warga" onclick="setLiveView('warga')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[14px] font-semibold transition">
+                    <span class="material-symbols-outlined text-[18px]">groups</span> Untuk Warga
+                </button>
+                <button type="button" data-view-btn="teknis" onclick="setLiveView('teknis')" class="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg text-[14px] font-semibold transition">
+                    <span class="material-symbols-outlined text-[18px]">monitoring</span> Data Teknis
+                </button>
+            </div>
+        </div>
+
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
             <div class="lg:col-span-8 space-y-6">
+                {{-- ================= MODE WARGA (bahasa awam) ================= --}}
+                <div id="wargaMain" class="space-y-5">
+
+                    {{-- 1. STATUS BESAR + APA YANG HARUS DILAKUKAN --}}
+                    <section id="wStatusCard" class="rounded-2xl border-2 p-5 sm:p-7 bg-white border-air-300">
+                        <div class="flex flex-col sm:flex-row sm:items-start gap-4 sm:gap-5">
+                            <div id="wStatusIcon" class="w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl flex items-center justify-center bg-slate-100 text-slate-500">
+                                <span class="material-symbols-outlined text-[40px] sm:text-[48px]">help</span>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <p class="text-[12px] font-mono font-semibold uppercase tracking-wider text-deep-400">Kondisi lereng saat ini</p>
+                                <h2 id="wStatusTitle" class="mt-1 text-[1.9rem] sm:text-[2.4rem] leading-tight font-extrabold text-deep-900">Memuat…</h2>
+                                <p id="wStatusDesc" class="mt-2 text-[16px] sm:text-[17px] leading-relaxed text-deep-700"></p>
+                                <p id="wUpdated" class="mt-3 inline-flex items-center gap-1.5 text-[13px] text-deep-500">
+                                    <span class="material-symbols-outlined text-[18px]">schedule</span><span>—</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 rounded-xl bg-white/70 border border-current/10 p-4 sm:p-5" style="border-color: rgba(19,51,50,.08)">
+                            <p class="text-[15px] font-bold text-deep-900 flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-teal-600">checklist</span>Yang perlu Anda lakukan</p>
+                            <ol id="wTodo" class="mt-3 space-y-2.5 text-[15px] text-deep-700"></ol>
+                        </div>
+
+                        <div id="wActions" class="mt-5 flex flex-wrap gap-3">
+                            <a href="{{ route('peta-evakuasi.index') }}" class="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-teal-500 hover:bg-teal-600 text-white text-[15px] font-semibold font-heading transition">
+                                <span class="material-symbols-outlined text-[20px]">route</span> Lihat rute &amp; posko evakuasi
+                            </a>
+                            <a id="wCall112" href="tel:112" class="hidden items-center gap-2 px-5 py-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-[15px] font-semibold font-heading transition">
+                                <span class="material-symbols-outlined text-[20px]">call</span> Telepon darurat 112
+                            </a>
+                        </div>
+                    </section>
+
+                    {{-- 2. PERKIRAAN 1 JAM KE DEPAN --}}
+                    <section class="card p-5 flex items-start gap-4">
+                        <span class="w-12 h-12 shrink-0 rounded-xl bg-air-100 border border-air-300 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined text-[26px]">schedule</span></span>
+                        <div class="min-w-0">
+                            <p class="text-[13px] text-deep-500">Perkiraan 1 jam ke depan (hasil analisis komputer)</p>
+                            <p id="wForecast" class="mt-0.5 text-[18px] sm:text-[20px] font-bold text-deep-900 font-heading">Sedang dihitung…</p>
+                            <p id="wForecastNote" class="mt-1 text-[14px] text-deep-600 leading-relaxed"></p>
+                        </div>
+                    </section>
+
+                    {{-- 3. KONDISI LERENG DALAM BAHASA SEHARI-HARI --}}
+                    <section>
+                        <div class="flex items-end justify-between gap-3 mb-3">
+                            <div>
+                                <h3 class="text-[19px] font-bold text-deep-900">Apa yang dirasakan sensor di lereng?</h3>
+                                <p class="text-[14px] text-deep-500">Diperbarui otomatis setiap 10 detik.</p>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            @php
+                                $wCards = [
+                                    ['wSoil',  'water_drop',      'Air di tanah permukaan', 'Seberapa basah tanah di dekat permukaan (±25 cm).'],
+                                    ['wDeep',  'layers',          'Air di tanah bagian dalam', 'Seberapa basah tanah lebih dalam (±75 cm). Kalau ikut basah, lereng makin berat.'],
+                                    ['wRain',  'rainy',           'Hujan di lereng', 'Diukur oleh alat penakar hujan di lokasi.'],
+                                    ['wMove',  'landslide',       'Gerakan tanah', 'Apakah tiang sensor bergeser atau miring dibanding sebelumnya.'],
+                                ];
+                            @endphp
+                            @foreach($wCards as [$id, $ic, $title, $help])
+                            <div id="{{ $id }}" class="card p-5 flex flex-col gap-3">
+                                <div class="flex items-center gap-3">
+                                    <span class="w-11 h-11 shrink-0 rounded-xl bg-air-100 border border-air-300 text-teal-600 flex items-center justify-center"><span class="material-symbols-outlined text-[24px]">{{ $ic }}</span></span>
+                                    <p class="text-[15px] font-semibold text-deep-900 leading-snug">{{ $title }}</p>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span data-w="dot" class="w-3 h-3 rounded-full bg-slate-300"></span>
+                                    <p data-w="word" class="text-[22px] font-extrabold font-heading text-deep-900 leading-none">—</p>
+                                </div>
+                                <div data-w="bar" class="hidden">
+                                    <div class="relative h-2.5 rounded-full overflow-hidden flex">
+                                        <span class="h-full bg-emerald-200" style="width:55%"></span><span class="h-full bg-amber-200" style="width:20%"></span><span class="h-full bg-rose-200" style="width:25%"></span>
+                                        <span data-w="pin" class="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-deep-900 border-2 border-white shadow" style="left:0%"></span>
+                                    </div>
+                                    <div class="mt-1 flex justify-between text-[11px] text-deep-400"><span>Kering</span><span>Basah</span><span>Jenuh</span></div>
+                                </div>
+                                <p data-w="mean" class="text-[14px] text-deep-700 leading-relaxed"></p>
+                                <p class="mt-auto pt-2 border-t border-air-200 text-[12px] text-deep-400 leading-relaxed">{{ $help }} <span data-w="raw" class="font-mono"></span></p>
+                            </div>
+                            @endforeach
+                        </div>
+                    </section>
+
+                    {{-- 4. PERUBAHAN 1 JAM TERAKHIR --}}
+                    <section class="info-note p-5">
+                        <p class="text-[15px] font-bold text-deep-900 flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-teal-600">history</span>Perubahan dalam 1 jam terakhir</p>
+                        <ul id="wTrend" class="mt-2 space-y-1.5 text-[15px] text-deep-700"></ul>
+                    </section>
+
+                    {{-- 5. ARTI WARNA STATUS --}}
+                    <section class="card p-5">
+                        <p class="text-[15px] font-bold text-deep-900">Arti warna status</p>
+                        <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                            <div class="rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+                                <p class="font-bold text-emerald-800 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-emerald-500"></span>AMAN</p>
+                                <p class="mt-1 text-[14px] text-emerald-900/80 leading-relaxed">Lereng stabil. Beraktivitas seperti biasa.</p>
+                            </div>
+                            <div class="rounded-xl bg-amber-50 border border-amber-200 p-4">
+                                <p class="font-bold text-amber-800 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-amber-500"></span>WASPADA</p>
+                                <p class="mt-1 text-[14px] text-amber-900/80 leading-relaxed">Tanah jenuh air atau mulai bergerak. Bersiap mengungsi.</p>
+                            </div>
+                            <div class="rounded-xl bg-rose-50 border border-rose-200 p-4">
+                                <p class="font-bold text-rose-800 flex items-center gap-2"><span class="w-3 h-3 rounded-full bg-rose-500"></span>BAHAYA</p>
+                                <p class="mt-1 text-[14px] text-rose-900/80 leading-relaxed">Risiko longsor tinggi. Segera ke posko evakuasi.</p>
+                            </div>
+                        </div>
+                        <p class="mt-3 text-[13px] text-deep-500">LARAS adalah alat bantu. Selalu ikuti arahan kader desa dan petugas BPBD setempat.</p>
+                    </section>
+                </div>
+                {{-- ================= /MODE WARGA ================= --}}
+
+                <div id="teknisMain" class="space-y-6">
 
                 @php
                     $status = strtoupper($current->status_ai ?? 'UNKNOWN');
@@ -1880,11 +2005,12 @@ svg.leaflet-image-layer.leaflet-interactive path {
                         <span class="text-[10px] text-slate-400">%</span>
                     </div>
                 </div>
+                </div>{{-- /teknisMain --}}
             </div>
 
             <div class="lg:col-span-4 space-y-5">
 
-                <div class="bg-white rounded-2xl shadow-sm p-5 border border-slate-200">
+                <div class="teknis-only bg-white rounded-2xl shadow-sm p-5 border border-slate-200">
                     <div class="flex items-center justify-between mb-3">
                         <h3 class="text-xs uppercase tracking-widest text-slate-500 font-bold">Auto Refresh</h3>
                         <button id="refreshToggleBtn" onclick="toggleAutoRefresh()" class="px-3 py-1 text-xs font-bold rounded-lg bg-emerald-100 text-emerald-700 hover:bg-emerald-200 transition-colors">
@@ -1903,7 +2029,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <!-- Logo BMKG Resmi via Wikimedia SVG -->
                             <img src="{{ asset('images/logo bmkg.png') }}" alt="BMKG Logo" class="w-7 h-9 object-contain shrink-0">
                             <div>
-                                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 font-mono leading-none">BMKG WEATHER</h3>
+                                <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 font-mono leading-none">Cuaca BMKG</h3>
                                 <p class="text-[10px] text-slate-400 font-medium mt-0.5">Pacet, Mojokerto</p>
                             </div>
                         </div>
@@ -1918,7 +2044,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <span class="text-base"></span>
                             <div>
                                 <p class="text-[10px] text-slate-400 font-sans">Kondisi</p>
-                                <p class="font-bold text-slate-800">Cerah</p>
+                                <p id="bmkgKondisi" class="font-bold text-slate-800">{{ $weatherInfo['condition'] ?? '–' }}</p>
                             </div>
                         </div>
 
@@ -1926,23 +2052,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <span class="text-base"></span>
                             <div>
                                 <p class="text-[10px] text-slate-400 font-sans">Suhu</p>
-                                <p class="font-bold text-slate-800">26°C</p>
+                                <p id="bmkgSuhu" class="font-bold text-slate-800">{{ ($weatherInfo['temp'] ?? null) !== null ? $weatherInfo['temp'] . '°C' : '–' }}</p>
                             </div>
                         </div>
 
                         <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center gap-2">
                             <span class="text-base"></span>
                             <div>
-                                <p class="text-[10px] text-slate-400 font-sans">Kelembapan</p>
-                                <p class="font-bold text-slate-800">RH 80%</p>
+                                <p class="text-[10px] text-slate-400 font-sans">Kelembapan udara</p>
+                                <p id="bmkgRh" class="font-bold text-slate-800">{{ ($weatherInfo['humidity'] ?? null) !== null ? $weatherInfo['humidity'] . '%' : '–' }}</p>
                             </div>
                         </div>
 
                         <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center gap-2">
                             <span class="text-base"></span>
                             <div>
-                                <p class="text-[10px] text-slate-400 font-sans">Curah Hujan</p>
-                                <p class="font-bold text-slate-800">0.1 mm/jam</p>
+                                <p class="text-[10px] text-slate-400 font-sans">Perkiraan hujan</p>
+                                <p id="bmkgHujan" class="font-bold text-slate-800">{{ ($weatherInfo['rainfall'] ?? null) !== null ? $weatherInfo['rainfall'] . ' mm/jam' : '–' }}</p>
                             </div>
                         </div>
                     </div>
@@ -1954,29 +2080,48 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
                         </div>
                         <div>
-                            <h3 class="text-sm font-bold text-slate-900">LARAS AI Assistant</h3>
-                            <p class="text-[10px] text-slate-400">Powered by Gemini AI</p>
+                            <h3 class="text-sm font-bold text-slate-900">Tanya LARAS</h3>
+                            <p class="text-[10px] text-slate-400">Asisten siaga longsor · menjawab dari data sensor &amp; BMKG terkini</p>
                         </div>
                     </div>
                     <div id="chatLog" class="h-52 overflow-y-auto p-4 space-y-3 text-xs">
                         <div class="flex gap-2">
                             <div class="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-                                <span class="text-[9px] font-bold text-indigo-600">AI</span>
+                                <span class="text-[9px] font-bold text-indigo-600">L</span>
                             </div>
                             <div class="bg-slate-50 rounded-xl px-3 py-2 text-slate-600 max-w-[85%]">
-                                LARAS AI Assistant siap. Kirim kueri kondisi sensor atau status longsor.
+                                Halo, saya LARAS. Saya bisa menjelaskan kondisi lereng saat ini, cuaca, posko evakuasi terdekat, dan apa yang perlu disiapkan. Silakan bertanya.
                             </div>
                         </div>
                     </div>
+                    <div class="warga-only px-3 pt-3 flex flex-wrap gap-2 border-t border-slate-100">
+                        <button type="button" onclick="askQuick('Apakah lereng aman saat ini?')" class="px-3 py-1.5 rounded-full bg-air-100 border border-air-300 text-[12px] font-semibold text-teal-700 hover:bg-air-200">Apakah aman saat ini?</button>
+                        <button type="button" onclick="askQuick('Ke mana saya harus mengungsi jika terjadi bahaya?')" class="px-3 py-1.5 rounded-full bg-air-100 border border-air-300 text-[12px] font-semibold text-teal-700 hover:bg-air-200">Ke mana harus mengungsi?</button>
+                        <button type="button" onclick="askQuick('Apa saja tanda-tanda akan terjadi longsor?')" class="px-3 py-1.5 rounded-full bg-air-100 border border-air-300 text-[12px] font-semibold text-teal-700 hover:bg-air-200">Tanda-tanda longsor</button>
+                        <button type="button" onclick="askQuick('Apa yang harus disiapkan di tas siaga bencana?')" class="px-3 py-1.5 rounded-full bg-air-100 border border-air-300 text-[12px] font-semibold text-teal-700 hover:bg-air-200">Isi tas siaga</button>
+                    </div>
                     <div class="border-t border-slate-100 p-3 flex gap-2">
-                        <input id="chatInput" type="text" placeholder="Tanya kondisi sensor..." class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700">
+                        <input id="chatInput" type="text" placeholder="Tulis pertanyaan Anda…" onkeydown="if(event.key==='Enter'){event.preventDefault();sendChat();}" class="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-300 text-slate-700">
                         <button onclick="sendChat()" class="px-3 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors flex items-center justify-center">
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
                         </button>
                     </div>
                 </div>
 
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                <div class="warga-only card p-5">
+                    <p class="text-[15px] font-bold text-deep-900 flex items-center gap-2"><span class="material-symbols-outlined text-[20px] text-rose-600">emergency</span>Nomor darurat</p>
+                    <a href="tel:112" class="mt-3 flex items-center justify-between gap-3 p-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white transition">
+                        <span><span class="block font-mono text-[22px] font-bold leading-none">112</span><span class="block text-[12px] text-white/85 mt-1">Darurat, gratis</span></span>
+                        <span class="material-symbols-outlined text-[26px]">call</span>
+                    </a>
+                    <div class="mt-2 grid grid-cols-2 gap-2">
+                        <a href="tel:117" class="p-3 rounded-xl bg-air-100 border border-air-300 hover:bg-air-200"><span class="block font-mono font-bold text-teal-700 text-[17px]">117</span><span class="block text-[12px] text-deep-600">BNPB</span></a>
+                        <a href="tel:115" class="p-3 rounded-xl bg-air-100 border border-air-300 hover:bg-air-200"><span class="block font-mono font-bold text-teal-700 text-[17px]">115</span><span class="block text-[12px] text-deep-600">Basarnas (SAR)</span></a>
+                    </div>
+                    <a href="{{ route('peta-evakuasi.index') }}" class="mt-3 inline-flex items-center gap-1 text-[14px] font-semibold text-teal-700 hover:underline">Lihat posko evakuasi terdekat <span class="material-symbols-outlined text-[18px]">arrow_forward</span></a>
+                </div>
+
+                <div class="teknis-only bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
                     <div class="px-5 py-4 border-b border-slate-100">
                         <h3 class="text-xs uppercase tracking-widest text-slate-500 font-bold">Riwayat Log ({{ count($logs) }} entri)</h3>
                     </div>
@@ -2197,24 +2342,38 @@ function renderSlide() {
     const slice = allStatusData.slice(currentSlide * PAGE, (currentSlide + 1) * PAGE);
     document.getElementById('slideInfo').textContent = 'Slide ' + (currentSlide + 1) + ' / ' + total;
     if (statusChart) statusChart.destroy();
+    // Grafik garis bertangga: status adalah tingkat (AMAN/WASPADA/BAHAYA), jadi garis
+    // naik/turun tegak saat status berubah. Warna titik & ruas garis mengikuti status.
+    const stStatus = slice.map(d => d.status_ai ?? d.status);
+    const stColor  = i => getStatusColor(stStatus[i]).border;
     statusChart = new Chart(document.getElementById('statusChart'), {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: slice.map(d => fmtLabel(d.timestamp)),
             datasets: [{
                 label: 'Status Longsor',
-                data: slice.map(d => statusToNumber(d.status_ai)),
-                backgroundColor: slice.map(d => getStatusColor(d.status_ai).bg),
-                borderColor: slice.map(d => getStatusColor(d.status).border),
-                borderWidth: 1.5, borderRadius: 4
+                data: stStatus.map(statusToNumber),
+                stepped: 'before',
+                fill: false,
+                borderWidth: 2.5,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: stStatus.map(s => getStatusColor(s).border),
+                pointBorderColor: '#ffffff',
+                pointBorderWidth: 1.5,
+                segment: { borderColor: ctx => stColor(ctx.p1DataIndex) }
             }]
         },
         options: {
             responsive: true,
-            plugins: { legend: { display: false } },
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ' Status: ' + ((stStatus[ctx.dataIndex] || 'UNKNOWN').toUpperCase()) } }
+            },
             scales: {
                 y: {
-                    min: 0, max: 3.5, grid: { color: '#f1f5f9' },
+                    min: 0.5, max: 3.5, grid: { color: '#f1f5f9' },
                     ticks: { stepSize: 1, callback: v => { if(v==1) return 'AMAN'; if(v==2) return 'WASPADA'; if(v==3) return 'BAHAYA'; return ''; } }
                 },
                 x: { grid: { color: '#f1f5f9' } }
@@ -2323,6 +2482,7 @@ function updateDOMWithLatest(d) {
     const now = new Date();
     const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0') + ':' + now.getSeconds().toString().padStart(2,'0');
     setEl('lastRefreshTime', timeStr);
+    if (typeof updateWarga === 'function') updateWarga(d);
 }
 
 function startAutoRefresh() {
@@ -2339,6 +2499,12 @@ function startAutoRefresh() {
 let bmkgRefreshInterval = null;
 
 function updateBmkgDisplay(w) {
+    if (!w) return;
+    const put = (id, v) => { const e = document.getElementById(id); if (e && v !== undefined && v !== null && v !== '') e.textContent = v; };
+    put('bmkgKondisi', w.condition);
+    put('bmkgSuhu', w.temp != null ? w.temp + '°C' : null);
+    put('bmkgRh', w.humidity != null ? w.humidity + '%' : null);
+    put('bmkgHujan', w.rainfall != null ? w.rainfall + ' mm/jam' : null);
     const el = document.getElementById('bmkg-display');
     if (!el) return;
     let text = '☁ ' + (w.condition || 'N/A');
@@ -2366,10 +2532,10 @@ function appendChat (role, text) {
     const div = document.createElement('div');
     div.className = 'flex gap-2 ' + (role === 'user' ? 'flex-row-reverse' : '');
     const avatar = document.createElement('div');
-    avatar.className = 'w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[9px] font-bold ' + (role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600');
-    avatar.textContent = role === 'user' ? 'OP' : 'AI';
+    avatar.className = 'min-w-6 px-1 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[9px] font-bold ' + (role === 'user' ? 'bg-blue-100 text-blue-600' : 'bg-indigo-100 text-indigo-600');
+    avatar.textContent = role === 'user' ? 'Anda' : 'L';
     const bubble = document.createElement('div');
-    bubble.className = 'rounded-xl px-3 py-2 text-slate-600 max-w-[85%] text-xs ' + (role === 'user' ? 'bg-blue-50 text-blue-800' : 'bg-slate-50');
+    bubble.className = 'rounded-xl px-3 py-2 text-slate-700 max-w-[85%] text-[13px] leading-relaxed ' + (role === 'user' ? 'bg-blue-50 text-blue-800' : 'bg-slate-50');
     bubble.style.whiteSpace = 'pre-line';
     bubble.innerText = text;
     div.appendChild(avatar);
@@ -2378,31 +2544,57 @@ function appendChat (role, text) {
     log.scrollTop = log.scrollHeight;
 }
 
+const chatHistory = [];
+let chatBusy = false;
+
 function sendChat() {
     const input = document.getElementById('chatInput');
     const msg = input.value.trim();
-    if (!msg) return;
+    if (!msg || chatBusy) return;
     input.value = '';
     appendChat('user', msg);
+    chatBusy = true;
 
-   fetch('/api/chatbot', {
+    // indikator "LARAS sedang mengetik"
+    const log = document.getElementById('chatLog');
+    const typing = document.createElement('div');
+    typing.id = 'typing-indicator';
+    typing.className = 'flex gap-2';
+    typing.innerHTML = '<div class="min-w-6 px-1 h-6 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 text-[9px] font-bold bg-indigo-100 text-indigo-600">L</div>'
+        + '<div class="rounded-xl px-3 py-2 bg-slate-50 text-slate-500 text-[13px]">LARAS sedang menyiapkan jawaban…</div>';
+    log.appendChild(typing);
+    log.scrollTop = log.scrollHeight;
+
+    const mode = document.getElementById('teknisMain') && !document.getElementById('teknisMain').classList.contains('hidden') ? 'teknis' : 'warga';
+
+    fetch('/api/chatbot', {
         method: 'POST',
-        headers: { 
-            'Content-Type': 'application/json', 
-            
+        headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
             'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
         },
-        body: JSON.stringify({ message: msg })
+        body: JSON.stringify({ message: msg, mode, history: chatHistory.slice(-8) })
     })
-    .then(r => r.json())
+    .then(async r => {
+        const d = await r.json().catch(() => ({}));
+        if (r.status === 429) throw new Error('Terlalu banyak pertanyaan dalam waktu singkat. Tunggu sebentar lalu coba lagi.');
+        if (r.status === 422) throw new Error('Pertanyaan terlalu panjang. Coba persingkat (maksimal 500 karakter).');
+        if (!r.ok) throw new Error('LARAS sedang tidak bisa dihubungi. Untuk keadaan darurat, hubungi 112.');
+        return d;
+    })
     .then(d => {
         document.getElementById('typing-indicator')?.remove();
-        appendChat('ai', d.reply || 'Tidak ada respons.');
+        const reply = d.reply || 'Maaf, LARAS belum bisa menjawab saat ini.';
+        appendChat('ai', reply);
+        chatHistory.push({ role: 'user', text: msg }, { role: 'ai', text: reply });
+        while (chatHistory.length > 10) chatHistory.shift();
     })
-    .catch(() => {
+    .catch(err => {
         document.getElementById('typing-indicator')?.remove();
-        appendChat('ai', 'Error: Koneksi ke AI engine gagal.');
-    });
+        appendChat('ai', err.message || 'LARAS sedang tidak bisa dihubungi. Untuk keadaan darurat, hubungi 112.');
+    })
+    .finally(() => { chatBusy = false; });
 }
 
 document.getElementById('chatInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') sendChat(); });
@@ -2677,6 +2869,7 @@ function updateForecastPills(data) {
     }
     if (rfEl)   rfEl.textContent   = latest.rf_confidence   != null ? parseFloat(latest.rf_confidence).toFixed(1)   + '%' : '—';
     if (lstmEl) lstmEl.textContent = latest.lstm_confidence != null ? parseFloat(latest.lstm_confidence).toFixed(1) + '%' : '—';
+    if (typeof updateWargaForecast === 'function') updateWargaForecast(latest);
 }
 
 function renderForecastCharts() {
@@ -2735,6 +2928,223 @@ function loadForecastData() {
 }
 
 
+
+
+// =====================================================================
+// MODE WARGA: menerjemahkan data sensor ke bahasa sehari-hari
+// =====================================================================
+const W_STATUS = {
+    AMAN: {
+        title: 'Aman', icon: 'verified_user',
+        card: 'bg-emerald-50 border-emerald-300', iconBox: 'bg-emerald-500 text-white', titleColor: 'text-emerald-800',
+        desc: 'Kondisi lereng saat ini aman. Silakan beraktivitas seperti biasa, tetapi tetap waspada saat hujan deras dan lama.',
+        todo: ['Beraktivitas seperti biasa.', 'Kenali rute evakuasi dan posko terdekat dari rumah Anda.', 'Siapkan tas siaga di rumah (dokumen, obat, senter, air minum).'],
+        call: false,
+    },
+    WASPADA: {
+        title: 'Waspada', icon: 'warning',
+        card: 'bg-amber-50 border-amber-300', iconBox: 'bg-amber-500 text-white', titleColor: 'text-amber-800',
+        desc: 'Tanah mulai jenuh air atau ada tanda pergerakan. Bersiaplah jika sewaktu-waktu harus mengungsi.',
+        todo: ['Siapkan tas siaga dan letakkan di dekat pintu.', 'Jauhi tebing dan lereng curam, terutama saat hujan.', 'Pastikan lansia, anak-anak, dan anggota keluarga yang sakit siap dibawa.', 'Ikuti informasi dan arahan dari kader desa.'],
+        call: true,
+    },
+    BAHAYA: {
+        title: 'Bahaya: segera mengungsi', icon: 'directions_run',
+        card: 'bg-rose-50 border-rose-300', iconBox: 'bg-rose-600 text-white', titleColor: 'text-rose-800',
+        desc: 'Risiko longsor tinggi. Segera tinggalkan area lereng dan menuju posko evakuasi terdekat lewat rute yang sudah ditentukan.',
+        todo: ['Tinggalkan rumah sekarang dan bawa tas siaga.', 'Ikuti rute evakuasi menuju posko, jangan mengambil jalan pintas.', 'Dahulukan lansia, anak-anak, dan penyandang disabilitas.', 'Sesampainya di posko, lapor (check-in) ke kader.'],
+        call: true,
+    },
+    UNKNOWN: {
+        title: 'Belum ada data terbaru', icon: 'help',
+        card: 'bg-slate-50 border-slate-300', iconBox: 'bg-slate-400 text-white', titleColor: 'text-slate-700',
+        desc: 'Sensor belum mengirim data terbaru. Jika hujan deras berlangsung lama, tetap waspada dan ikuti arahan kader desa.',
+        todo: ['Perhatikan tanda alam: retakan tanah, rembesan air, suara gemuruh dari lereng.', 'Ikuti arahan kader desa.', 'Jika merasa terancam, segera menjauh dari lereng dan hubungi 112.'],
+        call: true,
+    },
+};
+
+const wHist = [];          // riwayat {t, moist, deep, pitch, roll, rain} untuk membandingkan 1 jam terakhir
+let wLatest = null;
+
+function wTime(ts) {
+    if (!ts) return null;
+    const d = new Date(String(ts).replace(' ', 'T'));
+    return isNaN(d.getTime()) ? null : d;
+}
+function wNum(v) { const n = parseFloat(v); return isNaN(n) ? null : n; }
+function wAgo(d) {
+    if (!d) return 'belum ada data';
+    const s = Math.max(0, (Date.now() - CLOCK_SKEW_MS - d.getTime()) / 1000);
+    if (s < 60) return 'baru saja';
+    if (s < 3600) return Math.floor(s / 60) + ' menit lalu';
+    if (s < 86400) return Math.floor(s / 3600) + ' jam lalu';
+    return Math.floor(s / 86400) + ' hari lalu';
+}
+function wPushHist(d) {
+    if (!d) return;
+    const t = wTime(d.timestamp);
+    if (!t) return;
+    if (wHist.length && wHist[wHist.length - 1].t.getTime() === t.getTime()) return;
+    wHist.push({ t, moist: wNum(d.soil_moisture ?? d.moisture_percent), deep: wNum(d.moisture_percent_deep),
+                 pitch: wNum(d.pitch), roll: wNum(d.roll), rain: wNum(d.rainfall_mm) });
+    while (wHist.length > 2000) wHist.shift();
+}
+// data acuan: kira-kira 1 jam sebelum data terbaru (atau data paling awal yang tersedia)
+function wRef() {
+    if (wHist.length < 2) return null;
+    const last = wHist[wHist.length - 1].t.getTime();
+    let ref = wHist[0];
+    for (const h of wHist) { if (last - h.t.getTime() <= 3600 * 1000) { ref = h; break; } }
+    return ref === wHist[wHist.length - 1] ? null : ref;
+}
+
+function wSoilWord(v) {
+    if (v === null) return ['Tidak terbaca', 'bg-slate-300', 'Sensor belum mengirim angka kelembapan.'];
+    if (v > 75) return ['Sangat basah', 'bg-rose-500', 'Tanah sudah jenuh air. Tanah jenuh lebih mudah longsor.'];
+    if (v > 55) return ['Basah', 'bg-amber-500', 'Tanah menyerap banyak air. Perlu diperhatikan bila hujan berlanjut.'];
+    if (v > 30) return ['Lembap (normal)', 'bg-emerald-500', 'Kadar air tanah dalam batas wajar.'];
+    return ['Kering', 'bg-emerald-500', 'Tanah kering, risiko longsor akibat air rendah.'];
+}
+function wRainWord(r) {
+    if (r === null) return ['Tidak terbaca', 'bg-slate-300', 'Alat penakar hujan belum mengirim data.'];
+    if (r > 50) return ['Hujan sangat lebat', 'bg-rose-500', 'Hujan sangat deras. Waspadai longsor dan banjir bandang.'];
+    if (r > 20) return ['Hujan lebat', 'bg-rose-500', 'Hujan deras. Air cepat meresap ke tanah lereng.'];
+    if (r > 5)  return ['Hujan sedang', 'bg-amber-500', 'Hujan cukup deras. Pantau terus bila berlangsung lama.'];
+    if (r > 0)  return ['Hujan ringan', 'bg-emerald-500', 'Gerimis atau hujan ringan.'];
+    return ['Tidak hujan', 'bg-emerald-500', 'Saat ini tidak ada hujan di lokasi sensor.'];
+}
+function wMoveWord(d, ref) {
+    const p = wNum(d.pitch), r = wNum(d.roll);
+    if (p === null && r === null) return ['Tidak terbaca', 'bg-slate-300', 'Sensor gerakan belum mengirim data.', null];
+    if (!ref || ref.pitch === null) return ['Stabil', 'bg-emerald-500', 'Belum cukup data pembanding. Belum terlihat pergeseran.', null];
+    const delta = Math.max(Math.abs((p ?? 0) - (ref.pitch ?? 0)), Math.abs((r ?? 0) - (ref.roll ?? 0)));
+    if (delta >= 3) return ['Bergerak', 'bg-rose-500', 'Tiang sensor miring cukup besar dibanding sebelumnya. Bisa tanda tanah bergeser.', delta];
+    if (delta >= 1) return ['Bergeser sedikit', 'bg-amber-500', 'Ada sedikit perubahan kemiringan. Kader akan memeriksa ke lapangan.', delta];
+    return ['Stabil', 'bg-emerald-500', 'Tidak ada pergeseran berarti dibanding sebelumnya.', delta];
+}
+
+function wSetCard(id, word, dot, mean, raw, pinPct) {
+    const card = document.getElementById(id);
+    if (!card) return;
+    card.querySelector('[data-w="word"]').textContent = word;
+    card.querySelector('[data-w="dot"]').className = 'w-3 h-3 rounded-full ' + dot;
+    card.querySelector('[data-w="mean"]').textContent = mean;
+    card.querySelector('[data-w="raw"]').textContent = raw ? '(' + raw + ')' : '';
+    const bar = card.querySelector('[data-w="bar"]');
+    if (bar) {
+        if (pinPct === null || pinPct === undefined) { bar.classList.add('hidden'); }
+        else { bar.classList.remove('hidden'); bar.querySelector('[data-w="pin"]').style.left = 'calc(' + Math.max(0, Math.min(100, pinPct)) + '% - 7px)'; }
+    }
+}
+
+function updateWarga(d) {
+    if (!d) return;
+    wLatest = d;
+    wPushHist(d);
+    const ref = wRef();
+
+    // --- Status besar ---
+    const key = (d.status_ai || d.status || '').toString().toUpperCase();
+    const s = W_STATUS[key] || W_STATUS.UNKNOWN;
+    const card = document.getElementById('wStatusCard');
+    card.className = 'rounded-2xl border-2 p-5 sm:p-7 ' + s.card;
+    const ib = document.getElementById('wStatusIcon');
+    ib.className = 'w-16 h-16 sm:w-20 sm:h-20 shrink-0 rounded-2xl flex items-center justify-center ' + s.iconBox;
+    ib.innerHTML = '<span class="material-symbols-outlined text-[40px] sm:text-[48px]">' + s.icon + '</span>';
+    const tt = document.getElementById('wStatusTitle');
+    tt.textContent = s.title;
+    tt.className = 'mt-1 text-[1.9rem] sm:text-[2.4rem] leading-tight font-extrabold ' + s.titleColor;
+    document.getElementById('wStatusDesc').textContent = s.desc;
+    document.getElementById('wTodo').innerHTML = s.todo.map((t, i) =>
+        '<li class="flex items-start gap-3"><span class="w-6 h-6 shrink-0 rounded-full bg-deep-900 text-white text-[13px] font-bold flex items-center justify-center">' + (i + 1) + '</span><span>' + t + '</span></li>').join('');
+    const call = document.getElementById('wCall112');
+    call.classList.toggle('hidden', !s.call);
+    call.classList.toggle('inline-flex', s.call);
+    wRenderUpdated();
+
+    // --- Kartu kondisi lereng ---
+    const m = wNum(d.soil_moisture ?? d.moisture_percent), md = wNum(d.moisture_percent_deep), rain = wNum(d.rainfall_mm);
+    let w = wSoilWord(m);  wSetCard('wSoil', w[0], w[1], w[2], m === null ? '' : m.toFixed(0) + '%', m);
+    w = wSoilWord(md);     wSetCard('wDeep', w[0], w[1], w[2], md === null ? '' : md.toFixed(0) + '%', md);
+    w = wRainWord(rain);   wSetCard('wRain', w[0], w[1], w[2], rain === null ? '' : rain.toFixed(1) + ' mm/jam', null);
+    w = wMoveWord(d, ref); wSetCard('wMove', w[0], w[1], w[2], w[3] === null ? '' : 'berubah ' + w[3].toFixed(1) + '°', null);
+
+    // --- Perubahan 1 jam terakhir ---
+    const tr = [];
+    if (ref && m !== null && ref.moist !== null) {
+        const dm = m - ref.moist;
+        tr.push(dm > 5 ? 'Tanah permukaan <b>makin basah</b> (naik ' + dm.toFixed(0) + ' poin).'
+              : dm < -5 ? 'Tanah permukaan <b>mulai mengering</b> (turun ' + Math.abs(dm).toFixed(0) + ' poin).'
+              : 'Kelembapan tanah permukaan <b>relatif tetap</b>.');
+    }
+    if (ref && md !== null && ref.deep !== null) {
+        const dd = md - ref.deep;
+        if (dd > 5) tr.push('Air sudah <b>meresap ke tanah bagian dalam</b> (naik ' + dd.toFixed(0) + ' poin).');
+    }
+    const rainyRecent = wHist.filter(h => ref && h.t >= ref.t && (h.rain ?? 0) > 0).length;
+    if (ref) tr.push(rainyRecent ? 'Tercatat <b>hujan</b> di lokasi sensor dalam periode ini.' : '<b>Tidak tercatat hujan</b> di lokasi sensor.');
+    if (!tr.length) tr.push('Belum cukup data untuk membandingkan dengan 1 jam sebelumnya.');
+    document.getElementById('wTrend').innerHTML = tr.map(t => '<li class="flex items-start gap-2"><span class="text-teal-600 mt-0.5">•</span><span>' + t + '</span></li>').join('');
+}
+
+function wRenderUpdated() {
+    const el = document.querySelector('#wUpdated span:last-child');
+    if (!el || !wLatest) return;
+    const d = wTime(wLatest.timestamp);
+    const old = d && (Date.now() - CLOCK_SKEW_MS - d.getTime()) > 15 * 60 * 1000;
+    el.innerHTML = 'Data sensor diperbarui ' + wAgo(d) + (old ? ' · <b class="text-amber-700">data sudah lama, sensor mungkin sedang tidak mengirim</b>' : '');
+}
+
+function updateWargaForecast(latest) {
+    const el = document.getElementById('wForecast'), note = document.getElementById('wForecastNote');
+    if (!el || !latest) return;
+    const fs = (latest.forecast_status || '').toUpperCase();
+    const now = (wLatest?.status_ai || '').toUpperCase();
+    const word = { AMAN: 'Aman', WASPADA: 'Waspada', BAHAYA: 'Bahaya' }[fs];
+    if (!word) { el.textContent = 'Belum tersedia'; note.textContent = 'Perkiraan muncul setelah sensor mengirim data cukup lama.'; return; }
+    const rank = { AMAN: 0, WASPADA: 1, BAHAYA: 2 };
+    let txt = word;
+    if (now in rank) txt = rank[fs] > rank[now] ? 'Diperkirakan memburuk menjadi ' + word : rank[fs] < rank[now] ? 'Diperkirakan membaik menjadi ' + word : 'Diperkirakan tetap ' + word;
+    el.textContent = txt;
+    el.className = 'mt-0.5 text-[18px] sm:text-[20px] font-bold font-heading ' + (fs === 'BAHAYA' ? 'text-rose-700' : fs === 'WASPADA' ? 'text-amber-700' : 'text-emerald-700');
+    const c = latest.rf_confidence;
+    const sure = c == null ? '' : c >= 80 ? 'Komputer cukup yakin dengan perkiraan ini.' : c >= 60 ? 'Perkiraan ini cukup bisa dipegang, tetap pantau.' : 'Perkiraan ini belum pasti, tetap pantau perkembangan.';
+    note.textContent = (sure + ' Perkiraan bisa berubah, keputusan mengungsi tetap mengikuti arahan kader.').trim();
+}
+
+function askQuick(q) {
+    const input = document.getElementById('chatInput');
+    if (!input) return;
+    input.value = q;
+    sendChat();
+}
+
+// ---- pilih tampilan: Warga / Data Teknis ----
+function setLiveView(v) {
+    const teknis = v === 'teknis';
+    document.getElementById('wargaMain').classList.toggle('hidden', teknis);
+    document.getElementById('teknisMain').classList.toggle('hidden', !teknis);
+    document.querySelectorAll('.teknis-only').forEach(e => e.classList.toggle('hidden', !teknis));
+    document.querySelectorAll('.warga-only').forEach(e => e.classList.toggle('hidden', teknis));
+    document.querySelectorAll('[data-view-btn]').forEach(b => {
+        const on = b.dataset.viewBtn === v;
+        b.classList.toggle('bg-white', on); b.classList.toggle('text-teal-700', on); b.classList.toggle('shadow-sm', on);
+        b.classList.toggle('text-deep-500', !on);
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    try { localStorage.setItem('larasLiveView', v); } catch (e) {}
+    if (teknis) setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+}
+
+(function initWarga() {
+    (phpLogs || []).forEach(wPushHist);
+    if (phpCurrent) updateWarga(phpCurrent);
+    let v = document.body.dataset.defaultView || 'warga';
+    try { v = localStorage.getItem('larasLiveView') || v; } catch (e) {}
+    setLiveView(v);
+    setInterval(wRenderUpdated, 30000);
+})();
 
 // Buka Live Control Center langsung jika URL berakhiran #live (mis. dari navbar halaman lain)
 if (location.hash === '#live') enterDashboard();
