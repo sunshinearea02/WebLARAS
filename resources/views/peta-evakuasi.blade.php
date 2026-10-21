@@ -973,6 +973,40 @@ svg.leaflet-image-layer.leaflet-interactive path {
     .lapor-plus-btn img { width: 22px; height: 22px; pointer-events: none; }
     .leaflet-control.lapor-plus-wrap { border: 0; background: transparent; box-shadow: none; }
     .ikon-inline { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; }
+
+    /* Penanda posko: gambar tenda bulat dengan bingkai putih */
+    .posko-marker { border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .45); background: #fff; }
+
+    /* Tombol "?" + panel legenda di pojok kanan bawah peta */
+    .leaflet-control.legenda-wrap { border: 0; background: transparent; box-shadow: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .legenda-btn {
+        width: 44px; height: 44px; border-radius: 9999px; background: #0f766e; border: 3px solid #fff;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, .35); display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: transform .15s, background .15s;
+    }
+    .legenda-btn:hover { background: #115e59; transform: scale(1.06); }
+    .legenda-btn img { width: 22px; height: 22px; pointer-events: none; }
+    .legenda-panel {
+        display: none; width: 290px; max-width: calc(100vw - 48px); max-height: 430px; overflow-y: auto;
+        background: #fff; border: 1px solid #cfe5ea; border-radius: 14px; padding: 14px 14px 10px;
+        box-shadow: 0 10px 30px rgba(15, 23, 42, .25); font-family: Inter, sans-serif; color: #0f172a; cursor: default;
+    }
+    .legenda-panel.terbuka { display: block; }
+    .legenda-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .legenda-head h4 { font-size: 14px; font-weight: 700; margin: 0; }
+    .legenda-head button { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .legenda-head button:hover { background: #f1f5f9; }
+    .legenda-head button img { width: 16px; height: 16px; }
+    .legenda-grup { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; margin: 10px 0 4px; }
+    .legenda-item { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; }
+    .legenda-item .simbol { width: 28px; flex-shrink: 0; display: flex; justify-content: center; padding-top: 1px; }
+    .legenda-item .simbol img { width: 24px; height: 24px; }
+    .legenda-item .titik { width: 16px; height: 16px; border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); margin-top: 3px; }
+    .legenda-item .garis { width: 26px; border-top: 3px dashed #2563eb; margin-top: 10px; }
+    .legenda-item b { display: block; font-size: 12.5px; }
+    .legenda-item span { display: block; font-size: 11.5px; color: #475569; line-height: 1.4; }
+    .legenda-plus { width: 24px; height: 24px; border-radius: 9999px; background: #d97706; display: flex; align-items: center; justify-content: center; }
+    .legenda-plus img { width: 14px !important; height: 14px !important; }
 </style>
 </head>
 <body class="bg-air-50 text-deep-900 min-h-screen pb-12">
@@ -987,46 +1021,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <span class="section-tag">Navigasi Penyelamatan</span>
                 <h2 class="text-[1.75rem] sm:text-[2rem] font-bold text-deep-900 mt-2">Peta Evakuasi Desa {{ $wilayah['desa'] }}</h2>
                 <p class="text-deep-500 mt-1 max-w-2xl text-[14px] leading-relaxed">
-                    Kec. {{ $wilayah['kecamatan'] }}, Kab. {{ $wilayah['kabupaten'] }}. Warna titik menunjukkan status risiko tiap node sensor.
-                    Rute evakuasi otomatis ditarik dari node berstatus Waspada/Bahaya menuju posko terdekat.
+                    Kec. {{ $wilayah['kecamatan'] }}, Kab. {{ $wilayah['kabupaten'] }}. Rute evakuasi otomatis ditarik dari node berstatus
+                    Waspada/Bahaya menuju posko terdekat. Tekan tombol tanda tanya di pojok kanan bawah peta untuk melihat arti setiap simbol.
                 </p>
-            </div>
-            <!-- Ringkasan status node -->
-            <div class="flex gap-2">
-                <div class="px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-center min-w-[78px]">
-                    <p class="text-[20px] font-bold text-rose-600 leading-none">{{ $ringkasan['BAHAYA'] }}</p>
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-rose-700 mt-1">Bahaya</p>
-                </div>
-                <div class="px-4 py-2 rounded-xl bg-amber-50 border border-amber-200 text-center min-w-[78px]">
-                    <p class="text-[20px] font-bold text-amber-600 leading-none">{{ $ringkasan['WASPADA'] }}</p>
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-amber-700 mt-1">Waspada</p>
-                </div>
-                <div class="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-200 text-center min-w-[78px]">
-                    <p class="text-[20px] font-bold text-emerald-600 leading-none">{{ $ringkasan['AMAN'] }}</p>
-                    <p class="text-[10px] font-bold uppercase tracking-wide text-emerald-700 mt-1">Aman</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Legend Badges -->
-        <div class="flex flex-wrap gap-3">
-            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-emerald-500"></span> Node Aman
-            </div>
-            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-amber-500"></span> Node Waspada
-            </div>
-            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-rose-500"></span> Node Bahaya
-            </div>
-            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3 h-3 rounded-full bg-slate-400"></span> Belum ada data
-            </div>
-            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <img src="/images/icons/posko-tenda.svg" alt="" class="w-3.5 h-[18px]"> Posko Evakuasi
-            </div>
-            <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-5 border-t-2 border-dashed border-blue-600"></span> Rute Evakuasi
             </div>
         </div>
 
@@ -1404,11 +1401,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
             });
         }
 
-        // Posko evakuasi: pin bergambar tenda (file gambar, bukan emoji)
+        // Posko evakuasi: gambar tenda bulat (file gambar, bukan emoji)
         function poskoIcon() {
             return L.icon({
-                iconUrl: '/images/icons/posko-tenda.svg',
-                iconSize: [36, 45], iconAnchor: [18, 44], popupAnchor: [0, -40],
+                iconUrl: '/images/icons/posko.webp',
+                iconSize: [38, 38], iconAnchor: [19, 19], popupAnchor: [0, -20],
                 className: 'posko-marker',
             });
         }
@@ -1505,6 +1502,63 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 L.polyline([[lat, lng], [near.p.lat, near.p.lng]], { color, weight: 4, opacity: 0.8, dashArray: '6, 8' }).addTo(map);
             });
         });
+
+        // ===== Tombol "?" di kanan bawah peta: panel legenda (arti setiap simbol) =====
+        const LEGENDA_HTML = `
+            <div class="legenda-head">
+                <h4>Arti Simbol di Peta</h4>
+                <button type="button" class="legenda-tutup" aria-label="Tutup legenda"><img src="/images/icons/tutup.svg" alt=""></button>
+            </div>
+
+            <p class="legenda-grup">Status node sensor</p>
+            <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#10b981"></span></div>
+                <div><b>Hijau - Aman</b><span>Kondisi lereng normal.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#f59e0b"></span></div>
+                <div><b>Oranye - Waspada</b><span>Tanah mulai jenuh air atau bergerak. Bersiap mengungsi.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#e11d48"></span></div>
+                <div><b>Merah - Bahaya</b><span>Risiko longsor tinggi. Segera mengungsi lewat rute evakuasi.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#94a3b8"></span></div>
+                <div><b>Abu-abu - Belum ada data</b><span>Node belum mengirim data terbaru.</span></div></div>
+
+            <p class="legenda-grup">Evakuasi</p>
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/posko.webp" alt="" style="border-radius:9999px"></div>
+                <div><b>Posko evakuasi</b><span>Tempat mengungsi. Ketuk ikon untuk melihat kapasitas dan petunjuk arah.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><span class="garis"></span></div>
+                <div><b>Rute evakuasi</b><span>Jalur dari node Waspada/Bahaya menuju posko terdekat.</span></div></div>
+
+            <p class="legenda-grup">Laporan hambatan jalan</p>
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-ditutup.svg" alt=""></div>
+                <div><b>Jalan ditutup / longsor</b><span>Jalan tertimbun atau ditutup. Jangan dilewati.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-perbaikan.svg" alt=""></div>
+                <div><b>Perbaikan jalan</b><span>Ada perbaikan atau perawatan. Lewati dengan hati-hati.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-genangan.svg" alt=""></div>
+                <div><b>Genangan air / licin</b><span>Jalan tergenang atau licin. Waspada saat melintas.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-alternatif.svg" alt=""></div>
+                <div><b>Jalur alternatif aman</b><span>Jalan pengganti yang aman dilalui.</span></div></div>
+            ${CAN_MANAGE ? `
+            <p class="legenda-grup">Khusus petugas</p>
+            <div class="legenda-item"><div class="simbol"><span class="legenda-plus"><img src="/images/icons/plus.svg" alt=""></span></div>
+                <div><b>Tombol tambah</b><span>Laporkan hambatan atau penutupan jalan ke peta.</span></div></div>` : ''}`;
+
+        const LegendaControl = L.Control.extend({
+            options: { position: 'bottomright' },
+            onAdd: function () {
+                const wrap = L.DomUtil.create('div', 'leaflet-control legenda-wrap');
+                const panel = L.DomUtil.create('div', 'legenda-panel', wrap);
+                panel.innerHTML = LEGENDA_HTML;
+                const btn = L.DomUtil.create('a', 'legenda-btn', wrap);
+                btn.href = '#';
+                btn.title = 'Arti simbol di peta';
+                btn.setAttribute('aria-label', 'Tampilkan legenda peta');
+                btn.innerHTML = '<img src="/images/icons/bantuan.svg" alt="">';
+                L.DomEvent.disableClickPropagation(wrap);
+                L.DomEvent.disableScrollPropagation(wrap);
+                L.DomEvent.on(btn, 'click', e => { L.DomEvent.preventDefault(e); panel.classList.toggle('terbuka'); });
+                L.DomEvent.on(panel.querySelector('.legenda-tutup'), 'click', () => panel.classList.remove('terbuka'));
+                return wrap;
+            },
+        });
+        map.addControl(new LegendaControl());
 
         @if(isset($canManage) && $canManage)
         // Tombol bulat "+" di sisi kanan peta: langsung membuka form laporan hambatan jalan
