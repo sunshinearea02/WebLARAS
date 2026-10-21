@@ -90,7 +90,7 @@ class DashboardController extends Controller
     {
         $history = SensorLog::orderBy('timestamp', 'asc')
             // vibration & confidence diambil dari relasi ai_predictions (lihat model SensorLog)
-            ->get(['id', 'timestamp', 'status', 'forecast_status', 'moisture_percent', 'pitch'])
+            ->get() // semua kolom: nama kolom kelembapan bisa lama/baru (lihat accessor di SensorLog)
             ->map(function ($log) {
                 return [
                     'timestamp'           => $log->timestamp,

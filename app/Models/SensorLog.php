@@ -26,6 +26,10 @@ class SensorLog extends Model
         'moisture',
         'moisture_percent',
         'moisture_percent_deep',
+        'moisture_raw_dangkal',
+        'moisture_raw_dalam',
+        'kelembapan_dangkal',
+        'kelembapan_dalam',
         'rainfall_mm',
         'ax', 'ay', 'az',
         'gx', 'gy', 'gz',
@@ -44,7 +48,7 @@ class SensorLog extends Model
 
     protected $hidden = ['prediction'];
 
-    protected $appends = ['vibration', 'rf_confidence', 'lstm_confidence', 'forecast_confidence'];
+    protected $appends = ['vibration', 'rf_confidence', 'lstm_confidence', 'forecast_confidence', 'moisture_percent', 'moisture_percent_deep'];
 
     public function prediction(): HasOne
     {
@@ -74,6 +78,23 @@ class SensorLog extends Model
     public function getForecastConfidenceAttribute(): ?float
     {
         return $this->prediction?->forecast_confidence;
+    }
+
+    /**
+     * Kolom kelembapan di sensor_data berganti nama:
+     * moisture_percent -> kelembapan_dangkal, moisture_percent_deep -> kelembapan_dalam.
+     * Accessor ini membuat kode lama tetap jalan dengan nama kolom lama maupun baru.
+     */
+    public function getMoisturePercentAttribute($value): ?float
+    {
+        $v = $value ?? ($this->attributes['kelembapan_dangkal'] ?? null);
+        return $v === null ? null : (float) $v;
+    }
+
+    public function getMoisturePercentDeepAttribute($value): ?float
+    {
+        $v = $value ?? ($this->attributes['kelembapan_dalam'] ?? null);
+        return $v === null ? null : (float) $v;
     }
 
     /** forecast_status dari sensor_data, kalau kosong ambil dari ai_predictions. */

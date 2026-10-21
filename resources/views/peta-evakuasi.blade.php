@@ -1019,9 +1019,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         <div class="flex flex-wrap items-end justify-between gap-4">
             <div>
                 <span class="section-tag">Navigasi Penyelamatan</span>
-                <h2 class="text-[1.75rem] sm:text-[2rem] font-bold text-deep-900 mt-2">Peta Evakuasi Desa {{ $wilayah['desa'] }}</h2>
+                <h2 class="text-[1.75rem] sm:text-[2rem] font-bold text-deep-900 mt-2">Peta Evakuasi Kecamatan {{ $wilayah['kecamatan'] }}</h2>
                 <p class="text-deep-500 mt-1 max-w-2xl text-[14px] leading-relaxed">
-                    Kec. {{ $wilayah['kecamatan'] }}, Kab. {{ $wilayah['kabupaten'] }}. Rute evakuasi otomatis ditarik dari node berstatus
+                    Kab. {{ $wilayah['kabupaten'] }}@if(!empty($wilayah['daftarDesa'])), mencakup Desa {{ implode(', ', $wilayah['daftarDesa']) }}@endif. Rute evakuasi otomatis ditarik dari node berstatus
                     Waspada/Bahaya menuju posko terdekat. Tekan tombol tanda tanya di pojok kanan bawah peta untuk melihat arti setiap simbol.
                 </p>
             </div>
@@ -1393,7 +1393,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 className: '',
                 html: `<div style="position:relative;width:22px;height:22px">${pulse}
                          <div style="position:relative;background:${color};width:22px;height:22px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45)"></div>
-                         <span style="position:absolute;left:26px;top:2px;white-space:nowrap;font:700 11px Inter,sans-serif;color:#0f172a;background:rgba(255,255,255,.9);padding:1px 6px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.2)">${esc(node.node_code)}</span>
+                         <span style="position:absolute;left:26px;top:2px;white-space:nowrap;font:700 11px Inter,sans-serif;color:#0f172a;background:rgba(255,255,255,.9);padding:1px 6px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.2)">${esc(node.node_name || node.node_code)}</span>
                        </div>`,
                 iconSize: [22, 22],
                 iconAnchor: [11, 11],
@@ -1431,7 +1431,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         const mapNodes = nodes.filter(n => !isNaN(parseFloat(n.lat)) && !isNaN(parseFloat(n.lng)));
         mapNodes.forEach(node => {
             const color = statusColor(node.status);
-            L.marker([parseFloat(node.lat), parseFloat(node.lng)], { icon: nodeIcon(node), zIndexOffset: node.status === 'BAHAYA' ? 1000 : 0 })
+            L.marker([parseFloat(node.lat), parseFloat(node.lng)], { icon: nodeIcon(node), zIndexOffset: node.status === 'BAHAYA' ? 1000 : 500 })
                 .addTo(map)
                 .bindPopup(`
                 <div style="font-family: Inter, sans-serif; min-width: 190px;">
@@ -1682,8 +1682,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         }
 
 
-               // Tampilkan semua node + posko desa dalam satu layar
-        const pts = mapNodes.map(n => [parseFloat(n.lat), parseFloat(n.lng)]).concat(POSKO.map(p => [p.lat, p.lng]));
+        // Tampilkan semua node yang aktif + posko dalam satu layar (node yang belum pernah kirim data tidak ikut dibingkai)
+        const nodeAktif = mapNodes.filter(n => n.status !== 'UNKNOWN');
+        const pts = (nodeAktif.length ? nodeAktif : mapNodes).map(n => [parseFloat(n.lat), parseFloat(n.lng)]).concat(POSKO.map(p => [p.lat, p.lng]));
         if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [50, 50], maxZoom: 17 });
 
         // ===== Fitur check-in (hanya dirender untuk Admin & Kader) =====

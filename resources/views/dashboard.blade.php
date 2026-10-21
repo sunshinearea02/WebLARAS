@@ -1225,10 +1225,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <div class="lg:col-span-8">
                 <span class="section-tag">Peta &amp; logistik evakuasi</span>
                 <h2 class="mt-2 text-[1.75rem] sm:text-[2rem] font-bold text-deep-900">Sebaran Node &amp; Posko Evakuasi</h2>
-                <div class="mt-3 flex flex-wrap gap-2 text-[12px]">
-                    <span class="badge badge-aman">Aman</span><span class="badge badge-waspada">Waspada</span><span class="badge badge-bahaya">Bahaya</span><span class="badge badge-none">Belum ada data</span>
-                    <span class="badge badge-plain bg-air-100 text-teal-700"><span class="material-symbols-outlined text-[14px]">home_health</span>Posko</span>
-                </div>
+                <p class="mt-2 text-[14px] text-deep-500 leading-relaxed">Node sensor di lereng beberapa desa Kec. {{ config('laras.kecamatan') }}. Tekan tombol tanda tanya di pojok kanan bawah peta untuk melihat arti setiap simbol.</p>
                 <div class="card mt-4 p-2 overflow-hidden">
                     <div id="homeMap" class="w-full h-[340px] sm:h-[400px] rounded-lg bg-air-100"></div>
                 </div>
@@ -1238,7 +1235,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div class="card p-5 sm:p-6 bg-air-50 h-full flex flex-col gap-4">
                     <div class="flex items-center gap-2 text-teal-700"><span class="material-symbols-outlined">home_health</span><span class="text-[11px] font-mono font-semibold uppercase tracking-wider">Posko evakuasi</span></div>
                     <h3 class="text-[19px] font-bold text-deep-900 -mt-1">Titik kumpul &amp; check-in warga</h3>
-                    <ul class="flex flex-col gap-2.5">
+                    <ul class="flex flex-col gap-2.5 max-h-[300px] overflow-y-auto pr-1">
                         @forelse($posko as $p)
                         <li class="bg-white border border-air-200 rounded-lg p-3">
                             <p class="text-[14px] font-semibold text-deep-900">{{ $p['nama'] }}</p>
@@ -1531,31 +1528,111 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
     </footer>
 
-    <!-- Peta mini Beranda (Leaflet) -->
+    <!-- Peta mini Beranda (Leaflet): ikon gambar, tanpa emoji, legenda lewat tombol "?" -->
+    <style>
+        @keyframes larasPulse { 0% { transform: scale(.6); opacity: .55; } 100% { transform: scale(1.9); opacity: 0; } }
+        .posko-marker { border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 2px 8px rgba(15, 23, 42, .45); background: #fff; }
+        .leaflet-control.legenda-wrap { border: 0; background: transparent; box-shadow: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+        .legenda-btn { width: 44px; height: 44px; border-radius: 9999px; background: #0f766e; border: 3px solid #fff; box-shadow: 0 4px 12px rgba(15, 23, 42, .35); display: flex; align-items: center; justify-content: center; cursor: pointer; transition: transform .15s, background .15s; }
+        .legenda-btn:hover { background: #115e59; transform: scale(1.06); }
+        .legenda-btn img { width: 22px; height: 22px; pointer-events: none; }
+        .legenda-panel { display: none; width: 270px; max-width: calc(100vw - 64px); max-height: 255px; overflow-y: auto; background: #fff; border: 1px solid #cfe5ea; border-radius: 14px; padding: 14px 14px 10px; box-shadow: 0 10px 30px rgba(15, 23, 42, .25); font-family: Inter, sans-serif; color: #0f172a; cursor: default; }
+        .legenda-panel.terbuka { display: block; }
+        .legenda-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+        .legenda-head h4 { font-size: 14px; font-weight: 700; margin: 0; }
+        .legenda-head button { width: 26px; height: 26px; border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+        .legenda-head button:hover { background: #f1f5f9; }
+        .legenda-head button img { width: 16px; height: 16px; }
+        .legenda-grup { font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #64748b; margin: 10px 0 4px; }
+        .legenda-item { display: flex; align-items: flex-start; gap: 10px; padding: 5px 0; }
+        .legenda-item .simbol { width: 28px; flex-shrink: 0; display: flex; justify-content: center; padding-top: 1px; }
+        .legenda-item .simbol img { width: 24px; height: 24px; }
+        .legenda-item .titik { width: 16px; height: 16px; border-radius: 9999px; border: 3px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.4); margin-top: 3px; }
+        .legenda-item b { display: block; font-size: 12.5px; }
+        .legenda-item span { display: block; font-size: 11.5px; color: #475569; line-height: 1.4; }
+    </style>
     <script>
         (function () {
             const nodes = @json(collect($nodes)->filter(fn ($n) => $n->lat !== null && $n->lng !== null)->values());
             const posko = @json($posko);
             const colors = { AMAN: '#10B981', WASPADA: '#F59E0B', BAHAYA: '#E11D48' };
+            const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+            const fmt = (v, u) => (v === null || v === undefined) ? '-' : `${v}${u}`;
+
+            // Titik node: lingkaran warna status + nama node; BAHAYA berdenyut
+            function nodeIcon(n) {
+                const c = colors[n.status] || '#94A3B8';
+                const pulse = n.status === 'BAHAYA'
+                    ? `<span style="position:absolute;inset:-9px;border-radius:50%;background:${c};opacity:.35;animation:larasPulse 1.6s ease-out infinite"></span>` : '';
+                return L.divIcon({
+                    className: '',
+                    html: `<div style="position:relative;width:20px;height:20px">${pulse}
+                             <div style="position:relative;background:${c};width:20px;height:20px;border-radius:50%;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45)"></div>
+                             <span style="position:absolute;left:24px;top:1px;white-space:nowrap;font:700 10.5px Inter,sans-serif;color:#0f172a;background:rgba(255,255,255,.9);padding:1px 6px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.2)">${esc(n.node_name || n.node_code)}</span>
+                           </div>`,
+                    iconSize: [20, 20], iconAnchor: [10, 10], popupAnchor: [0, -12],
+                });
+            }
+            // Posko: gambar tenda (file gambar, bukan emoji)
+            const poskoIcon = () => L.icon({ iconUrl: '/images/icons/posko.webp', iconSize: [34, 34], iconAnchor: [17, 17], popupAnchor: [0, -18], className: 'posko-marker' });
+
+            const LEGENDA_HTML = `
+                <div class="legenda-head">
+                    <h4>Arti Simbol di Peta</h4>
+                    <button type="button" class="legenda-tutup" aria-label="Tutup legenda"><img src="/images/icons/tutup.svg" alt=""></button>
+                </div>
+                <p class="legenda-grup">Status node sensor</p>
+                <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#10b981"></span></div><div><b>Hijau - Aman</b><span>Kondisi lereng normal.</span></div></div>
+                <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#f59e0b"></span></div><div><b>Oranye - Waspada</b><span>Tanah mulai jenuh air atau bergerak. Bersiap mengungsi.</span></div></div>
+                <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#e11d48"></span></div><div><b>Merah - Bahaya</b><span>Risiko longsor tinggi. Segera mengungsi ke posko.</span></div></div>
+                <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#94a3b8"></span></div><div><b>Abu-abu - Belum ada data</b><span>Node belum mengirim data terbaru.</span></div></div>
+                <p class="legenda-grup">Evakuasi</p>
+                <div class="legenda-item"><div class="simbol"><img src="/images/icons/posko.webp" alt="" style="border-radius:9999px"></div><div><b>Posko evakuasi</b><span>Tempat mengungsi. Rute lengkap ada di halaman Peta Evakuasi.</span></div></div>`;
+
+            // dibuat saat init(): Leaflet dimuat setelah skrip ini
+            const buatLegenda = () => new (L.Control.extend({
+                options: { position: 'bottomright' },
+                onAdd: function () {
+                    const wrap = L.DomUtil.create('div', 'leaflet-control legenda-wrap');
+                    const panel = L.DomUtil.create('div', 'legenda-panel', wrap);
+                    panel.innerHTML = LEGENDA_HTML;
+                    const btn = L.DomUtil.create('a', 'legenda-btn', wrap);
+                    btn.href = '#'; btn.title = 'Arti simbol di peta';
+                    btn.setAttribute('aria-label', 'Tampilkan legenda peta');
+                    btn.innerHTML = '<img src="/images/icons/bantuan.svg" alt="">';
+                    L.DomEvent.disableClickPropagation(wrap);
+                    L.DomEvent.disableScrollPropagation(wrap);
+                    L.DomEvent.on(btn, 'click', e => { L.DomEvent.preventDefault(e); panel.classList.toggle('terbuka'); });
+                    L.DomEvent.on(panel.querySelector('.legenda-tutup'), 'click', () => panel.classList.remove('terbuka'));
+                    return wrap;
+                },
+            }))();
+
             function init() {
                 const el = document.getElementById('homeMap');
                 if (!el || typeof L === 'undefined') { if (el) el.innerHTML = '<div class="h-full flex items-center justify-center text-sm text-deep-400">Peta tidak dapat dimuat.</div>'; return; }
                 const map = L.map(el, { scrollWheelZoom: false, attributionControl: true });
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 18, attribution: '&copy; OpenStreetMap' }).addTo(map);
                 const pts = [];
-                const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
                 nodes.forEach(n => {
                     const c = colors[n.status] || '#94A3B8';
-                    L.circleMarker([n.lat, n.lng], { radius: 9, color: '#fff', weight: 2, fillColor: c, fillOpacity: 1 }).addTo(map)
-                        .bindPopup(`<b>${esc(n.node_name || n.node_code)}</b><br>${esc(n.desa || '')}<br>Status: <b>${esc(n.status_label)}</b>`);
-                    pts.push([n.lat, n.lng]);
+                    L.marker([n.lat, n.lng], { icon: nodeIcon(n), zIndexOffset: n.status === 'BAHAYA' ? 1000 : 500 }).addTo(map)
+                        .bindPopup(`<div style="font-family:Inter,sans-serif;min-width:180px">
+                            <p style="font-weight:700;font-size:13px;margin:0 0 2px">${esc(n.node_name || n.node_code)}</p>
+                            <p style="font-size:11px;color:#64748b;margin:0 0 6px">Desa ${esc(n.desa || '-')}</p>
+                            <span style="font-size:10px;font-weight:700;color:#fff;background:${c};padding:2px 8px;border-radius:999px">${esc(n.status_label)}</span>
+                            <p style="font-size:11px;color:#475569;margin:8px 0 0">Tanah dangkal ${fmt(n.moisture, '%')} | dalam ${fmt(n.moisture_deep, '%')}<br>Hujan ${fmt(n.rain, ' mm')} | Kemiringan ${fmt(n.tilt, '°')}</p>
+                            ${n.last_at ? `<p style="font-size:10px;color:#94a3b8;margin:4px 0 0">Data ${esc(n.last_at)}</p>` : ''}
+                        </div>`);
+                    if (n.status !== 'UNKNOWN') pts.push([n.lat, n.lng]);   // node tanpa data tidak ikut dibingkai
                 });
                 posko.forEach(p => {
-                    L.marker([p.lat, p.lng], { icon: L.divIcon({ className: '', html: '<div style="width:28px;height:28px;border-radius:8px;background:#008080;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(0,0,0,.25);font:600 14px Inter">P</div>', iconSize: [28, 28], iconAnchor: [14, 14] }) })
-                        .addTo(map).bindPopup(`<b>${esc(p.nama)}</b><br>${esc(p.lokasi)}`);
+                    L.marker([p.lat, p.lng], { icon: poskoIcon() }).addTo(map)
+                        .bindPopup(`<div style="font-family:Inter,sans-serif"><b>${esc(p.nama)}</b><br><span style="font-size:11px;color:#64748b">${esc(p.lokasi)}</span>${p.kapasitas ? `<br><span style="font-size:11px">Kapasitas ${esc(p.kapasitas)} orang</span>` : ''}</div>`);
                     pts.push([p.lat, p.lng]);
                 });
-                if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 15 }); else map.setView([-7.66, 112.54], 13);
+                map.addControl(buatLegenda());
+                if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 15 }); else map.setView([-7.668, 112.548], 13);
                 window.larasHomeMap = map;
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();
@@ -1707,15 +1784,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
                     if ($isBahaya) {
                         $statusBg = 'bg-rose-50 border-rose-500';
                         $statusTextColor = 'text-rose-700';
-                        $statusLabel = '⚠ BAHAYA : EVAKUASI SEGERA';
+                        $statusLabel = 'BAHAYA : EVAKUASI SEGERA';
                     } elseif ($isWaspada) {
                         $statusBg = 'bg-yellow-50 border-yellow-500';
                         $statusTextColor = 'text-yellow-700';
-                        $statusLabel = '⚡ WASPADA : SIAGA PENUH';
+                        $statusLabel = 'WASPADA : SIAGA PENUH';
                     } else {
                         $statusBg = 'bg-white border-emerald-500';
                         $statusTextColor = 'text-emerald-700';
-                        $statusLabel = '✓ SISTEM AMAN';
+                        $statusLabel = 'SISTEM AMAN';
                     }
                 @endphp
 
@@ -2435,15 +2512,15 @@ function updateDOMWithLatest(d) {
     if (status === 'BAHAYA') {
         card.className += 'bg-rose-50 border-rose-500';
         txt.className = 'text-3xl font-extrabold tracking-tight text-rose-700';
-        txt.textContent = '⚠ BAHAYA : EVAKUASI SEGERA';
+        txt.textContent = 'BAHAYA : EVAKUASI SEGERA';
     } else if (status === 'WASPADA') {
         card.className += 'bg-yellow-50 border-yellow-500';
         txt.className = 'text-3xl font-extrabold tracking-tight text-yellow-700';
-        txt.textContent = '⚡ WASPADA : SIAGA PENUH';
+        txt.textContent = 'WASPADA : SIAGA PENUH';
     } else {
         card.className += 'bg-white border-emerald-500';
         txt.className = 'text-3xl font-extrabold tracking-tight text-emerald-700';
-        txt.textContent = '✓ SISTEM AMAN';
+        txt.textContent = 'SISTEM AMAN';
     }
 
     const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
@@ -2507,7 +2584,7 @@ function updateBmkgDisplay(w) {
     put('bmkgHujan', w.rainfall != null ? w.rainfall + ' mm/jam' : null);
     const el = document.getElementById('bmkg-display');
     if (!el) return;
-    let text = '☁ ' + (w.condition || 'N/A');
+    let text = '' + (w.condition || 'N/A');
     if (w.temp)     text += ' · ' + w.temp + '°C';
     if (w.humidity) text += ' · RH ' + w.humidity + '%';
     if (w.rainfall && parseFloat(w.rainfall) > 0) text += ' · ' + w.rainfall + ' mm/jam';

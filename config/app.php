@@ -65,7 +65,7 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Jakarta'), // waktu sensor_data disimpan dalam WIB
 
     /*
     |--------------------------------------------------------------------------

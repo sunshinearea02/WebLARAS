@@ -10,7 +10,6 @@ use Illuminate\Validation\Rule;
 
 class EvacuationMapController extends Controller
 {
-    // Daftar Pilihan Posko Aman di Pacet
     /** Posko evakuasi desa yang dipantau (config/laras.php). */
     public function getDaftarPosko(): array
     {
@@ -20,10 +19,8 @@ class EvacuationMapController extends Controller
     public function index(Request $request)
     {
         $desa  = (string) config('laras.desa');
-        $all   = $this->nodesForMap();
-
-        // Fokus ke satu desa. Bila belum ada node di desa itu, tampilkan semua node.
-        $nodes = array_values(array_filter($all, fn ($n) => strcasecmp(trim((string) $n->desa), $desa) === 0)) ?: $all;
+        // Semua node di wilayah kecamatan (lintas desa) ditampilkan di peta
+        $nodes = $this->nodesForMap();
 
         $daftarPosko = $this->getDaftarPosko();
 
@@ -47,6 +44,7 @@ class EvacuationMapController extends Controller
 
         $wilayah = [
             'desa'      => $desa,
+            'daftarDesa'=> collect($nodes)->where('status', '!=', 'UNKNOWN')->pluck('desa')->filter()->unique()->sort()->values()->all(),
             'kecamatan' => config('laras.kecamatan'),
             'kabupaten' => config('laras.kabupaten'),
             'center'    => config('laras.center'),
@@ -98,8 +96,9 @@ class EvacuationMapController extends Controller
                     default   => $status,
                 },
                 'last_at'     => $last?->timestamp ? \Illuminate\Support\Carbon::parse($last->timestamp)->locale('id')->diffForHumans() : null,
-                'moisture'      => $last?->moisture_percent !== null ? round((float) $last->moisture_percent, 1) : null,
-                'moisture_deep' => $last?->moisture_percent_deep !== null ? round((float) $last->moisture_percent_deep, 1) : null,
+                // accessor SensorLog: membaca kelembapan_dangkal/_dalam (nama kolom baru) maupun nama lama
+                'moisture'      => $last?->moisture_percent !== null ? round($last->moisture_percent, 1) : null,
+                'moisture_deep' => $last?->moisture_percent_deep !== null ? round($last->moisture_percent_deep, 1) : null,
                 'rain'          => $last?->rainfall_mm !== null ? round((float) $last->rainfall_mm, 1) : null,
                 'tilt'          => $tilt,
             ];
