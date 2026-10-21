@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+  <title>Jalan ditutup / longsor</title>
+  <circle cx="18" cy="18" r="16.5" fill="#dc2626" stroke="#fff" stroke-width="3"/>
+  <rect x="7" y="12" width="22" height="8" rx="1.5" fill="#fff"/>
+  <path d="M10 12l-3 4v-4zM15 12l-5 8h4l5-8zM22 12l-5 8h4l5-8zM29 13v3l-3 4h-2z" fill="#dc2626"/>
+  <path d="M10 20v6M26 20v6" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/>
+</svg>

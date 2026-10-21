@@ -35,18 +35,6 @@ return [
         ],
     ],
 
-    /*
-    |--------------------------------------------------------------------------
-    | Telegram Bot — LARAS Alert System
-    |--------------------------------------------------------------------------
-    | Bot Token didapat dari @BotFather di Telegram.
-    | Chat ID bisa berupa ID personal, grup, atau channel.
-    */
-    'telegram' => [
-        'bot_token' => env('TELEGRAM_BOT_TOKEN', ''),
-        'chat_id'   => env('TELEGRAM_CHAT_ID', ''),
-    ],
-
     'gemini' => [
         'api_key' => env('GEMINI_API_KEY', ''),
     ],

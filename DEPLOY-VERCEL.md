@@ -15,8 +15,6 @@ karena sudah ditangani workflow n8n (`LARAS_WA_LARAVEL=false`).
 Perubahan kode pendukung:
 - `bootstrap/app.php`: `trustProxies` supaya Laravel membuat URL `https://` di belakang proxy Vercel.
 - `config/services.php` + `WhatsAppAlertService::evaluate()`: saklar `LARAS_WA_LARAVEL`.
-- `TelegramAlertService::sendIfChanged()`: dilewati kalau token Telegram kosong (tidak memanggil
-  `/api/weather-bmkg` dan tidak menambah log "gagal" di setiap polling dashboard).
 
 ## Environment Variables yang diisi di Vercel
 
@@ -38,7 +36,7 @@ sudah ada di `vercel.json`. Yang **wajib** diisi di *Project Settings → Enviro
 | `GEMINI_API_KEY` | API key Gemini (chatbot) |
 
 Opsional: `LARAS_DESA`, `LARAS_KECAMATAN`, `LARAS_KABUPATEN`, `N8N_TOKEN`.
-**Jangan** isi `GOWA_*`, `WA_*`, `TELEGRAM_*` di Vercel.
+**Jangan** isi `GOWA_*` dan `WA_*` di Vercel.
 
 ## Masalah yang mungkin muncul
 

@@ -956,6 +956,23 @@ svg.leaflet-image-layer.leaflet-interactive path {
         transition: background 0.2s;
     }
     .waze-control-btn:hover { background-color: #f1f5f9; }
+
+    /* Panel petunjuk arah bawaan Leaflet Routing Machine tidak dipakai: garis rute tetap tampil,
+       tetapi kotak-kotak panel (satu per rute) di sisi kanan peta disembunyikan. */
+    .leaflet-routing-container { display: none !important; }
+
+    /* Tombol bulat "+" di sisi kanan peta untuk membuka form laporan hambatan */
+    .lapor-plus-btn {
+        width: 46px; height: 46px; border-radius: 9999px;
+        background: #d97706; border: 3px solid #fff;
+        box-shadow: 0 4px 12px rgba(15, 23, 42, .35);
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: transform .15s, background .15s;
+    }
+    .lapor-plus-btn:hover { background: #b45309; transform: scale(1.06); }
+    .lapor-plus-btn img { width: 22px; height: 22px; pointer-events: none; }
+    .leaflet-control.lapor-plus-wrap { border: 0; background: transparent; box-shadow: none; }
+    .ikon-inline { display: inline-block; width: 16px; height: 16px; vertical-align: -3px; }
 </style>
 </head>
 <body class="bg-air-50 text-deep-900 min-h-screen pb-12">
@@ -1006,7 +1023,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <span class="w-3 h-3 rounded-full bg-slate-400"></span> Belum ada data
             </div>
             <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
-                <span class="w-3.5 h-3.5 rounded bg-blue-600 text-white text-[8px] font-bold flex items-center justify-center">P</span> Posko Evakuasi
+                <img src="/images/icons/posko-tenda.svg" alt="" class="w-3.5 h-[18px]"> Posko Evakuasi
             </div>
             <div class="flex items-center gap-2 bg-white border border-air-300 px-3 py-1.5 rounded-full text-xs font-semibold text-deep-700">
                 <span class="w-5 border-t-2 border-dashed border-blue-600"></span> Rute Evakuasi
@@ -1138,7 +1155,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
         @if(isset($canManage) && $canManage)
         <div class="bg-white border border-air-300 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-card">
             <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-200">🚧</div>
+                <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-200">
+                    <img src="/images/icons/hazard-ditutup.svg" alt="" class="w-7 h-7">
+                </div>
                 <div>
                     <h4 class="font-bold text-deep-900 text-sm">Laporkan Hambatan / Penutupan Jalan</h4>
                     <p class="text-xs text-deep-500">Bantu warga menghindari jalan rusak, longsor, atau penutupan jalur evakuasi.</p>
@@ -1220,7 +1239,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                     <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
                     <h3 class="font-bold text-amber-900 text-sm">Check-In Warga di Posko</h3>
                 </div>
-                <p>⚠️ Anda mengakses halaman ini sebagai <strong>Warga (Guest)</strong>. Pendataan check-in warga di posko hanya dilakukan oleh <strong>Kader &amp; Admin</strong>.</p>
+                <p><img src="/images/icons/peringatan.svg" alt="" class="ikon-inline mr-1">Anda mengakses halaman ini sebagai <strong>Warga (Guest)</strong>. Pendataan check-in warga di posko hanya dilakukan oleh <strong>Kader &amp; Admin</strong>.</p>
                 <p>Silakan datang ke posko evakuasi terdekat dan laporkan diri Anda kepada petugas.</p>
                 @guest
                 <a href="{{ route('login') }}" class="inline-flex items-center px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white font-semibold">Masuk Petugas →</a>
@@ -1288,7 +1307,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <!-- Kolom Kondisi: Dikunci agar tetap 1 baris utuh -->
                             <td class="px-3 py-2.5 whitespace-nowrap align-top">
                                 @if($warga->kondisi == 'Sehat')
-                                    <span class="inline-block bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">🟢 Sehat</span>
+                                    <span class="inline-block bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold inline-flex items-center gap-1"><img src="/images/icons/sehat.svg" alt="" class="w-3 h-3"> Sehat</span>
                                 @elseif($warga->kondisi == 'Luka Ringan')
                                     <span class="inline-block bg-amber-50 text-amber-700 border border-amber-200 px-2.5 py-0.5 rounded-full text-[10px] font-bold">Luka Ringan</span>
                                 @elseif($warga->kondisi == 'Luka Berat')
@@ -1385,26 +1404,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
             });
         }
 
+        // Posko evakuasi: pin bergambar tenda (file gambar, bukan emoji)
         function poskoIcon() {
-            return L.divIcon({
-                className: '',
-                html: `<div style="background:#2563eb;color:#fff;width:32px;height:32px;border-radius:10px;border:3px solid #fff;box-shadow:0 1px 5px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;font-size:15px;" title="Posko Evakuasi">🏠</div>`,
-                iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16],
+            return L.icon({
+                iconUrl: '/images/icons/posko-tenda.svg',
+                iconSize: [36, 45], iconAnchor: [18, 44], popupAnchor: [0, -40],
+                className: 'posko-marker',
             });
         }
 
-// Tambahkan juga fungsi icon untuk laporan hambatan jalan (Waze-style hazard)
-            function hazardIcon(type) {
-                let symbol = '🚧';
-                if (type.includes('Perbaikan')) symbol = '🛠️';
-                if (type.includes('Genangan')) symbol = '🌊';
-                if (type.includes('Alternatif')) symbol = '🟢';
-                return L.divIcon({
-                    className: '',
-                    html: `<div style="background:#b45309;color:#fff;width:30px;height:30px;border-radius:50%;border:3px solid #fff;display:flex;align-items:center;justify-content:center;font-size:14px;box-shadow:0 2px 6px rgba(0,0,0,0.3);">${symbol}</div>`,
-                    iconSize: [30, 30], iconAnchor: [15, 15], popupAnchor: [0, -15],
-                });
-            }
+        // Laporan hambatan jalan: ikon gambar sesuai jenis hambatan
+        function hazardImage(type) {
+            type = type || '';
+            if (type.includes('Perbaikan')) return '/images/icons/hazard-perbaikan.svg';
+            if (type.includes('Genangan')) return '/images/icons/hazard-genangan.svg';
+            if (type.includes('Alternatif')) return '/images/icons/hazard-alternatif.svg';
+            return '/images/icons/hazard-ditutup.svg';
+        }
+        function hazardIcon(type) {
+            return L.icon({
+                iconUrl: hazardImage(type),
+                iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16],
+            });
+        }
 
         const fmt = (v, u) => (v === null || v === undefined) ? '-' : `${v}${u}`;
 
@@ -1439,7 +1461,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 .addTo(map)
                 .bindPopup(`
                 <div style="font-family: Inter, sans-serif; min-width: 170px;">
-                    <p style="font-weight:700; font-size:13px; color:#b45309; margin:0 0 2px;">⚠️ ${esc(h.type)}</p>
+                    <p style="font-weight:700; font-size:13px; color:#b45309; margin:0 0 2px; display:flex; align-items:center; gap:6px;"><img src="${hazardImage(h.type)}" alt="" style="width:18px;height:18px"> ${esc(h.type)}</p>
                     <p style="font-size:11px; color:#64748b; margin:0 0 6px;">${esc(h.desc || 'Tanpa keterangan.')}</p>
                     <span style="font-size:9px; color:#94a3b8;">Dilaporkan oleh Petugas</span>
                 </div>`);
@@ -1485,16 +1507,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
         });
 
         @if(isset($canManage) && $canManage)
-// Membuat Custom Control Leaflet untuk tombol lapor hambatan di dalam peta
+        // Tombol bulat "+" di sisi kanan peta: langsung membuka form laporan hambatan jalan
         const LaporJalanControl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function (map) {
-                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
-                const btn = L.DomUtil.create('a', 'waze-control-btn', container);
-                btn.innerHTML = '🚧 Lapor Jalan';
-                btn.title = 'Laporkan jalan longsor / ditutup';
+                const container = L.DomUtil.create('div', 'leaflet-control lapor-plus-wrap');
+                const btn = L.DomUtil.create('a', 'lapor-plus-btn', container);
+                btn.innerHTML = '<img src="/images/icons/plus.svg" alt="">';
+                btn.title = 'Laporkan hambatan / penutupan jalan';
+                btn.setAttribute('aria-label', 'Laporkan hambatan jalan');
                 btn.href = '#';
-                
+                L.DomEvent.disableClickPropagation(container);
+
                 L.DomEvent.on(btn, 'click', function (e) {
                     L.DomEvent.stopPropagation(e);
                     L.DomEvent.preventDefault(e);
@@ -1720,12 +1744,15 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Jenis Hambatan</label>
-                    <select id="road_type" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none">
-                        <option value="Jalan Ditutup / Longsor">🚧 Jalan Ditutup / Tertimbun Longsor</option>
-                        <option value="Perbaikan Jalan">🛠️ Perbaikan / Perawatan Jalan</option>
-                        <option value="Genangan Air / Banjir">🌊 Genangan Air / Rawan Licin</option>
-                        <option value="Akses Alternatif Aman">🟢 Jalur Alternatif Aman</option>
-                    </select>
+                    <div class="flex items-center gap-2">
+                        <img id="road_type_icon" src="/images/icons/hazard-ditutup.svg" alt="" class="w-8 h-8 shrink-0">
+                        <select id="road_type" onchange="document.getElementById('road_type_icon').src = hazardImage(this.value)" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                            <option value="Jalan Ditutup / Longsor">Jalan Ditutup / Tertimbun Longsor</option>
+                            <option value="Perbaikan Jalan">Perbaikan / Perawatan Jalan</option>
+                            <option value="Genangan Air / Banjir">Genangan Air / Rawan Licin</option>
+                            <option value="Akses Alternatif Aman">Jalur Alternatif Aman</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="grid grid-cols-2 gap-3">
                     <div>
@@ -1737,8 +1764,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
                         <input type="number" step="0.000001" id="road_lng" required placeholder="112.541000" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs font-mono">
                     </div>
                 </div>
-                <button type="button" onclick="pickRoadOnMap()" class="w-full py-2 bg-air-100 hover:bg-air-200 text-teal-700 rounded-lg text-xs font-bold transition">
-                    📍 Pilih Titik Hambatan di Peta
+                <button type="button" onclick="pickRoadOnMap()" class="w-full py-2 bg-air-100 hover:bg-air-200 text-teal-700 rounded-lg text-xs font-bold transition inline-flex items-center justify-center gap-1.5">
+                    <img src="/images/icons/pin.svg" alt="" class="w-4 h-4"> Pilih Titik Hambatan di Peta
                 </button>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Keterangan Tambahan</label>
@@ -1771,13 +1798,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 addHazardMarker(newH);
                 closeRoadModal();
                 this.reset();
+                document.getElementById('road_type_icon').src = hazardImage('');
                 alert('Laporan berhasil disiarkan ke peta warga!');
             });
         </script>
         @endif
 
-        <!-- Leaflet JS & Leaflet Routing Machine (Pastikan CDN ini ada di bagian bawah sebelum penutup </body>) -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 </body> 
 </html>

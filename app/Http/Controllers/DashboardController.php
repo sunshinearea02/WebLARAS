@@ -3,8 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\SensorLog;
-use App\Models\TelegramAlertLog;
-use App\Services\TelegramAlertService;
 use App\Services\WhatsAppAlertService;
 use Illuminate\Support\Facades\Http;
 
@@ -49,30 +47,6 @@ class DashboardController extends Controller
         }
 
         $this->mapFields($current);
-
-        $status = strtoupper(trim($current->status ?? $current->status_ai ?? 'UNKNOWN'));
-
-        if (in_array($status, ['WASPADA', 'BAHAYA'])) {
-            $telegram = new TelegramAlertService();
-            $data     = $current->toArray();
-            $sent     = $telegram->sendIfChanged($status, $data);
-
-            // null = tidak dikirim karena masih cooldown / status sama.
-            // Hanya catat log saat benar-benar ada percobaan kirim, supaya tabel
-            // telegram_alert_logs tidak bertambah di setiap polling browser.
-            if ($sent !== null) TelegramAlertLog::create([
-                'status'           => $status,
-                'sensor_log_id'    => $current->id,
-                'moisture_percent' => $current->moisture_percent,
-                'pitch'            => $current->pitch,
-                'roll'             => $current->roll,
-                'vibration'        => $current->vibration ?? null,
-                'rf_confidence'    => $current->rf_confidence ?? null,
-                'lstm_confidence'  => $current->lstm_confidence ?? null,
-                'sent'             => $sent,
-                'sensor_timestamp' => $current->timestamp,
-            ]);
-        }
 
         // WhatsApp (GoWA): cadangan bila scheduler belum jalan. Dibatasi 1x per 15 detik.
         try {

@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
  *
  * Kolom hasil AI (vibration, rf_confidence, lstm_confidence, forecast_confidence)
  * TIDAK ada di sensor_data, tetapi di tabel ai_predictions. Supaya kode
- * dashboard/chatbot/telegram yang lama tetap jalan, nilai itu diambil dari
+ * dashboard/chatbot yang lama tetap jalan, nilai itu diambil dari
  * relasi `prediction` lewat accessor di bawah dan ikut tampil di JSON.
  */
 class SensorLog extends Model

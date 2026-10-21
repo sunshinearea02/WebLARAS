@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36" width="36" height="36">
+  <title>Genangan air / licin</title>
+  <circle cx="18" cy="18" r="16.5" fill="#0284c7" stroke="#fff" stroke-width="3"/>
+  <path d="M18 7.5c3.4 4.2 5.2 7.1 5.2 9.3a5.2 5.2 0 0 1-10.4 0c0-2.2 1.8-5.1 5.2-9.3z" fill="#fff"/>
+  <path d="M7.5 25.5c2.1 0 2.1-1.6 4.2-1.6s2.1 1.6 4.2 1.6 2.1-1.6 4.2-1.6 2.1 1.6 4.2 1.6 2.1-1.6 4.2-1.6" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
+</svg>
