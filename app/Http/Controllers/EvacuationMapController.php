@@ -54,7 +54,11 @@ class EvacuationMapController extends Controller
         // Menentukan hak akses kelola (ubah sesuai kebutuhan otorisasi aplikasi Anda)
         $canManage = auth()->check();
 
-        return view('peta-evakuasi', compact('nodes', 'checkins', 'daftarPosko', 'ringkasan', 'wilayah', 'canManage'));
+        // Laporan hambatan jalan (warga & petugas); kader/admin bisa memverifikasi & menghapus
+        $laporanJalan = \App\Models\HazardReport::untukPeta();
+        $canVerify    = \Illuminate\Support\Facades\Gate::allows('kelola-data');
+
+        return view('peta-evakuasi', compact('nodes', 'checkins', 'daftarPosko', 'ringkasan', 'wilayah', 'canManage', 'laporanJalan', 'canVerify'));
     }
 
     /**

@@ -1149,7 +1149,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
         </div>
         @endif
 
-        @if(isset($canManage) && $canManage)
         <div class="bg-white border border-air-300 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-card">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center border border-amber-200">
@@ -1157,14 +1156,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>
                 <div>
                     <h4 class="font-bold text-deep-900 text-sm">Laporkan Hambatan / Penutupan Jalan</h4>
-                    <p class="text-xs text-deep-500">Bantu warga menghindari jalan rusak, longsor, atau penutupan jalur evakuasi.</p>
+                    <p class="text-xs text-deep-500">Siapa pun boleh melapor, tanpa login. Bantu warga lain menghindari jalan rusak, longsor, atau penutupan jalur evakuasi. Laporan warga dicek kader.</p>
                 </div>
             </div>
             <button type="button" onclick="openRoadModal()" class="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs transition shadow-sm flex items-center gap-2">
                 <span>Laporkan Kondisi Jalan</span>
             </button>
         </div>
-        @endif
         <!-- Section Sistem Check-in Warga Posko -->
         <div class="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -1449,24 +1447,59 @@ svg.leaflet-image-layer.leaflet-interactive path {
         });
 
 
-        // Load laporan hambatan jalan
-        let hazardReports = JSON.parse(localStorage.getItem('laras_hazards') || '[]');
-        hazardReports.forEach(h => addHazardMarker(h));
+        // Laporan hambatan jalan dari database (warga & petugas). Laporan warga yang belum dicek
+        // kader tampil sedikit pudar dengan label "Belum diverifikasi".
+        const CAN_VERIFY = @json($canVerify ?? false);
+        const LAPOR_URL = @json(route('laporan-jalan.store'));
+        const hazardMarkers = {};
+        (@json($laporanJalan ?? [])).forEach(h => addHazardMarker(h));
+
+        function hazardPopup(h) {
+            const ok = h.status === 'terverifikasi';
+            const badge = ok
+                ? '<span style="font-size:10px;font-weight:700;color:#047857;background:#d1fae5;padding:2px 8px;border-radius:999px">Terverifikasi</span>'
+                : '<span style="font-size:10px;font-weight:700;color:#92400e;background:#fef3c7;padding:2px 8px;border-radius:999px">Belum diverifikasi</span>';
+            const aksi = CAN_VERIFY ? `
+                <div style="display:flex;gap:6px;margin-top:8px">
+                    ${ok ? '' : `<button type="button" onclick="verifikasiLaporan(${Number(h.id)})" style="flex:1;font-size:11px;font-weight:700;color:#fff;background:#0d9488;padding:5px 8px;border-radius:8px">Verifikasi</button>`}
+                    <button type="button" onclick="hapusLaporan(${Number(h.id)})" style="flex:1;font-size:11px;font-weight:700;color:#be123c;background:#ffe4e6;padding:5px 8px;border-radius:8px">Hapus</button>
+                </div>` : '';
+            return `
+                <div style="font-family: Inter, sans-serif; min-width: 190px;">
+                    <p style="font-weight:700; font-size:13px; color:#b45309; margin:0 0 4px; display:flex; align-items:center; gap:6px;"><img src="${hazardImage(h.type)}" alt="" style="width:18px;height:18px"> ${esc(h.type)}</p>
+                    ${badge}
+                    <p style="font-size:11px; color:#475569; margin:6px 0 4px;">${esc(h.desc || 'Tanpa keterangan.')}</p>
+                    <span style="font-size:10px; color:#94a3b8;">Dilaporkan oleh ${esc(h.pelapor || 'Warga')}${h.waktu ? ' · ' + esc(h.waktu) : ''}</span>
+                    ${aksi}
+                </div>`;
+        }
 
         function addHazardMarker(h) {
-            L.marker([h.lat, h.lng], { icon: hazardIcon(h.type) })
+            if (hazardMarkers[h.id]) map.removeLayer(hazardMarkers[h.id]);
+            hazardMarkers[h.id] = L.marker([h.lat, h.lng], { icon: hazardIcon(h.type), opacity: h.status === 'terverifikasi' ? 1 : 0.75, zIndexOffset: 700 })
                 .addTo(map)
-                .bindPopup(`
-                <div style="font-family: Inter, sans-serif; min-width: 170px;">
-                    <p style="font-weight:700; font-size:13px; color:#b45309; margin:0 0 2px; display:flex; align-items:center; gap:6px;"><img src="${hazardImage(h.type)}" alt="" style="width:18px;height:18px"> ${esc(h.type)}</p>
-                    <p style="font-size:11px; color:#64748b; margin:0 0 6px;">${esc(h.desc || 'Tanpa keterangan.')}</p>
-                    <span style="font-size:9px; color:#94a3b8;">Dilaporkan oleh Petugas</span>
-                </div>`);
+                .bindPopup(hazardPopup(h));
+            return hazardMarkers[h.id];
+        }
+
+        function laporanAksi(url, method) {
+            return fetch(url, { method, headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN } }).then(handleJson);
+        }
+        function verifikasiLaporan(id) {
+            laporanAksi(`${LAPOR_URL}/${id}/verifikasi`, 'POST')
+                .then(res => addHazardMarker(res.report).openPopup())
+                .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'));
+        }
+        function hapusLaporan(id) {
+            if (!confirm('Hapus laporan hambatan ini dari peta?')) return;
+            laporanAksi(`${LAPOR_URL}/${id}`, 'DELETE')
+                .then(() => { if (hazardMarkers[id]) { map.removeLayer(hazardMarkers[id]); delete hazardMarkers[id]; } })
+                .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'));
         }
 
         // Plot posko evakuasi
         POSKO.forEach(p => {
-            L.marker([p.lat, p.lng], { icon: poskoIcon(), zIndexOffset: 500 })
+            L.marker([p.lat, p.lng], { icon: poskoIcon() })
                 .addTo(map)
                 .bindPopup(`
                 <div style="font-family: Inter, sans-serif; min-width: 170px;">
@@ -1535,10 +1568,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div><b>Genangan air / licin</b><span>Jalan tergenang atau licin. Waspada saat melintas.</span></div></div>
             <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-alternatif.svg" alt=""></div>
                 <div><b>Jalur alternatif aman</b><span>Jalan pengganti yang aman dilalui.</span></div></div>
-            ${CAN_MANAGE ? `
-            <p class="legenda-grup">Khusus petugas</p>
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-ditutup.svg" alt="" style="opacity:.75"></div>
+                <div><b>Ikon sedikit pudar</b><span>Laporan warga yang belum diverifikasi kader.</span></div></div>
             <div class="legenda-item"><div class="simbol"><span class="legenda-plus"><img src="/images/icons/plus.svg" alt=""></span></div>
-                <div><b>Tombol tambah</b><span>Laporkan hambatan atau penutupan jalan ke peta.</span></div></div>` : ''}`;
+                <div><b>Tombol tambah</b><span>Siapa pun bisa melaporkan hambatan atau penutupan jalan ke peta.</span></div></div>`;
 
         const LegendaControl = L.Control.extend({
             options: { position: 'bottomright' },
@@ -1560,8 +1593,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         });
         map.addControl(new LegendaControl());
 
-        @if(isset($canManage) && $canManage)
-        // Tombol bulat "+" di sisi kanan peta: langsung membuka form laporan hambatan jalan
+        // Tombol bulat "+" di sisi kanan peta (untuk semua orang): membuka form laporan hambatan jalan
         const LaporJalanControl = L.Control.extend({
             options: { position: 'topright' },
             onAdd: function (map) {
@@ -1583,7 +1615,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
             }
         });
         map.addControl(new LaporJalanControl());
-        @endif
 
 
         
@@ -1789,7 +1820,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
             .catch(err => console.error(err));
         }
     </script>
-            @if(isset($canManage) && $canManage)
         <div id="roadModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-deep-900/40 px-4">
             <form id="roadForm" class="w-full max-w-md bg-white rounded-xl border border-air-300 shadow-float p-6 space-y-4">
                 @csrf
@@ -1824,11 +1854,18 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </button>
                 <div>
                     <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Keterangan Tambahan</label>
-                    <textarea id="road_desc" rows="2" placeholder="Contoh: Material longsor menutup jalur..." class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"></textarea>
+                    <textarea id="road_desc" rows="2" maxlength="300" placeholder="Contoh: Material longsor menutup jalur..." class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none"></textarea>
                 </div>
+                @guest
+                <div>
+                    <label class="block text-xs font-bold text-slate-500 uppercase mb-1">Nama Pelapor <span class="normal-case font-normal">(boleh dikosongkan)</span></label>
+                    <input type="text" id="road_name" maxlength="60" placeholder="Contoh: Budi, RT 02 Padusan" class="w-full px-3 py-2 border border-air-300 rounded-lg text-xs focus:ring-2 focus:ring-teal-500 focus:outline-none">
+                    <p class="text-[11px] text-deep-400 mt-1">Laporan tampil di peta dengan label "belum diverifikasi" sampai dicek kader.</p>
+                </div>
+                @endguest
                 <div class="flex justify-end gap-2 pt-1">
                     <button type="button" onclick="closeRoadModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100">Batal</button>
-                    <button type="submit" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-white text-xs font-bold">Kirim Laporan</button>
+                    <button type="submit" id="road_submit" class="px-4 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 disabled:opacity-60 text-white text-xs font-bold">Kirim Laporan</button>
                 </div>
             </form>
         </div>
@@ -1847,17 +1884,32 @@ svg.leaflet-image-layer.leaflet-interactive path {
             }
             document.getElementById('roadForm')?.addEventListener('submit', function(e) {
                 e.preventDefault();
-                const newH = { type: document.getElementById('road_type').value, lat: parseFloat(document.getElementById('road_lat').value), lng: parseFloat(document.getElementById('road_lng').value), desc: document.getElementById('road_desc').value };
-                hazardReports.push(newH);
-                localStorage.setItem('laras_hazards', JSON.stringify(hazardReports));
-                addHazardMarker(newH);
-                closeRoadModal();
-                this.reset();
-                document.getElementById('road_type_icon').src = hazardImage('');
-                alert('Laporan berhasil disiarkan ke peta warga!');
+                const form = this, btn = document.getElementById('road_submit');
+                const payload = {
+                    type: document.getElementById('road_type').value,
+                    lat: parseFloat(document.getElementById('road_lat').value),
+                    lng: parseFloat(document.getElementById('road_lng').value),
+                    desc: document.getElementById('road_desc').value,
+                    reporter_name: document.getElementById('road_name')?.value || null,
+                };
+                btn.disabled = true;
+                fetch(LAPOR_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': CSRF_TOKEN },
+                    body: JSON.stringify(payload),
+                })
+                .then(res => res.status === 429 ? Promise.reject(new Error('Terlalu banyak laporan. Coba lagi beberapa menit lagi.')) : handleJson(res))
+                .then(res => {
+                    addHazardMarker(res.report);
+                    closeRoadModal();
+                    form.reset();
+                    document.getElementById('road_type_icon').src = hazardImage('');
+                    alert(res.message);
+                })
+                .catch(err => alert(err.message || 'Terjadi kesalahan koneksi server.'))
+                .finally(() => { btn.disabled = false; });
             });
         </script>
-        @endif
 
 </body> 
 </html>

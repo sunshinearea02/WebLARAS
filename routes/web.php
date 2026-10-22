@@ -9,6 +9,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SensorNodeController;
 use App\Http\Controllers\VerifikasiController;
 use App\Http\Controllers\AutomationController;
+use App\Http\Controllers\HazardReportController;
 
 
 // Otomasi n8n: pemeriksaan peringatan berkala (dilindungi header X-LARAS-Token = N8N_TOKEN)
@@ -28,6 +29,10 @@ Route::post('/api/chatbot', [ChatbotController::class, 'chat'])->middleware('thr
 Route::get('/lanskap', [LandscapeController::class, 'index'])->name('lanskap.index');
 Route::get('/peta-evakuasi', [EvacuationMapController::class, 'index'])->name('peta-evakuasi.index');
 Route::get('/peta-evakuasi/checkins', [EvacuationMapController::class, 'getCheckins'])->name('peta-evakuasi.checkins-list');
+
+// Laporan hambatan jalan: warga boleh melihat & melapor tanpa login (dibatasi 5 laporan / 10 menit)
+Route::get('/peta-evakuasi/laporan-jalan', [HazardReportController::class, 'index'])->name('laporan-jalan.index');
+Route::post('/peta-evakuasi/laporan-jalan', [HazardReportController::class, 'store'])->middleware('throttle:5,10')->name('laporan-jalan.store');
 
 // --- OTENTIKASI ---
 Route::middleware('guest')->group(function () {
@@ -60,6 +65,10 @@ Route::middleware(['auth', 'role:admin,kader'])->group(function () {
     // Check-in Warga di Posko
     Route::post('/peta-evakuasi/checkin', [EvacuationMapController::class, 'storeCheckin'])->name('peta-evakuasi.checkin');
     Route::delete('/peta-evakuasi/checkin/{id}', [EvacuationMapController::class, 'destroyCheckin'])->name('peta-evakuasi.checkin.destroy');
+
+    // Laporan hambatan jalan: verifikasi / hapus
+    Route::post('/peta-evakuasi/laporan-jalan/{report}/verifikasi', [HazardReportController::class, 'verify'])->name('laporan-jalan.verify');
+    Route::delete('/peta-evakuasi/laporan-jalan/{report}', [HazardReportController::class, 'destroy'])->name('laporan-jalan.destroy');
 
     // Node sensor: tambah / ubah koordinat GPS
     Route::post('/nodes', [SensorNodeController::class, 'store'])->name('nodes.store');
