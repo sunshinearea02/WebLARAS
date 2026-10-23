@@ -1335,7 +1335,6 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
     <!-- Leaflet JS & Leaflet Routing Machine -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
 
     <script>
         const nodes = @json($nodes);
@@ -1526,29 +1525,53 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
         // Rute evakuasi: tiap node WASPADA/BAHAYA ke posko terdekat (mengikuti jalan, OSRM).
         // Bila layanan rute tidak tersedia, ditarik garis lurus putus-putus sebagai cadangan.
-        const nearestPosko = (lat, lng) => POSKO.reduce((best, p) => {
-            const d = map.distance([lat, lng], [p.lat, p.lng]);
-            return !best || d < best.d ? { p, d } : best;
-        }, null);
+        // ===== Rute evakuasi: node BAHAYA / WASPADA -> posko terdekat LEWAT JALAN (jalan kaki) =====
+        // Rute jalan kaki (OSRM profil foot, ikut jalan setapak) dihitung ke SEMUA posko, lalu dipilih
+        // yang terpendek. Ujung rute disambung ke titik node & posko (keduanya belum tentu tepat di jalan).
+        // Kalau layanan rute gagal, ditampilkan garis lurus putus-putus sebagai cadangan.
+        const RUTE_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
+        const lapisRute = L.layerGroup().addTo(map);
+        const menitJalan = m => Math.max(1, Math.round(m / 60));   // +-3,6 km/jam di jalan lereng
 
-        mapNodes.filter(n => n.status === 'BAHAYA' || n.status === 'WASPADA').forEach(node => {
-            const lat = parseFloat(node.lat), lng = parseFloat(node.lng);
-            const near = nearestPosko(lat, lng);
-            if (!near) return;
-            const color = node.status === 'BAHAYA' ? '#e11d48' : '#f59e0b';
-            const ctrl = L.Routing.control({
-                waypoints: [L.latLng(lat, lng), L.latLng(near.p.lat, near.p.lng)],
-                lineOptions: { styles: [{ color: '#2563eb', opacity: 0.85, weight: 5, dashArray: '8, 8' }], addWaypoints: false },
-                createMarker: () => null,
-                addWaypoints: false,
-                draggableWaypoints: false,
-                fitSelectedRoutes: false,
-                show: false,
-            }).addTo(map);
-            ctrl.on('routingerror', () => {
-                L.polyline([[lat, lng], [near.p.lat, near.p.lng]], { color, weight: 4, opacity: 0.8, dashArray: '6, 8' }).addTo(map);
-            });
-        });
+        async function ruteJalanKaki(a, b) {
+            const res = await fetch(`${RUTE_URL}${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`);
+            const d = await res.json();
+            if (!res.ok || d.code !== 'Ok' || !d.routes || !d.routes.length) throw new Error('rute tidak ditemukan');
+            const garis = d.routes[0].geometry.coordinates.map(([x, y]) => [y, x]);
+            const titik = [a, ...garis, b];
+            let jarak = 0;
+            for (let i = 1; i < titik.length; i++) jarak += map.distance(titik[i - 1], titik[i]);
+            return { titik, jarak };
+        }
+
+        async function gambarRute(node) {
+            const a = [parseFloat(node.lat), parseFloat(node.lng)];
+            if (!POSKO.length || isNaN(a[0])) return;
+            const warna = node.status === 'BAHAYA' ? '#e11d48' : '#f59e0b';
+            const hasil = await Promise.all(POSKO.map(p =>
+                ruteJalanKaki(a, [p.lat, p.lng]).then(r => ({ ...r, p })).catch(() => null)));
+            const ok = hasil.filter(Boolean);
+            let pilih, cadangan = false;
+            if (ok.length) {
+                pilih = ok.reduce((x, y) => (y.jarak < x.jarak ? y : x));
+            } else {
+                const p = POSKO.reduce((x, y) => (map.distance(a, [y.lat, y.lng]) < map.distance(a, [x.lat, x.lng]) ? y : x));
+                pilih = { p, titik: [a, [p.lat, p.lng]], jarak: map.distance(a, [p.lat, p.lng]) };
+                cadangan = true;
+            }
+            const info = `
+                <div style="font-family: Inter, sans-serif; min-width: 190px;">
+                    <p style="font-weight:700; font-size:13px; margin:0 0 4px;">Rute evakuasi</p>
+                    <p style="font-size:12px; margin:0;"><b style="color:${warna}">${esc(node.node_name)}</b> &rarr; <b>${esc(pilih.p.nama)}</b></p>
+                    <p style="font-size:11px; color:#475569; margin:6px 0 0;">${cadangan ? 'Garis lurus (rute jalan belum tersedia)' : 'Lewat jalan, jalan kaki'}: +-${Math.round(pilih.jarak / 10) * 10} m, +-${menitJalan(pilih.jarak)} menit</p>
+                </div>`;
+            // garis putih di bawah supaya rute tetap terlihat di atas peta
+            L.polyline(pilih.titik, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(lapisRute);
+            L.polyline(pilih.titik, { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: cadangan ? '6, 8' : '10, 8' })
+                .addTo(lapisRute).bindPopup(info);
+        }
+
+        mapNodes.filter(n => n.status === 'BAHAYA' || n.status === 'WASPADA').forEach(n => { gambarRute(n); });
 
         // ===== Tombol "?" di kanan bawah peta: panel legenda (arti setiap simbol) =====
         const LEGENDA_HTML = `
@@ -1574,7 +1597,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <div class="legenda-item"><div class="simbol"><img src="/images/icons/posko.webp" alt="" style="border-radius:9999px"></div>
                 <div><b>Posko evakuasi</b><span>Tempat mengungsi. Ketuk ikon untuk melihat kapasitas dan petunjuk arah.</span></div></div>
             <div class="legenda-item"><div class="simbol"><span class="garis"></span></div>
-                <div><b>Rute evakuasi</b><span>Jalur dari node Waspada/Bahaya menuju posko terdekat.</span></div></div>
+                <div><b>Rute evakuasi</b><span>Jalur jalan kaki terpendek dari node Waspada/Bahaya ke posko. Ketuk garis untuk jarak & waktu tempuh.</span></div></div>
 
             <p class="legenda-grup">Laporan hambatan jalan</p>
             <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-ditutup.svg" alt=""></div>
