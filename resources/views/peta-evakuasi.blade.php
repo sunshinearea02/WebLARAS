@@ -1398,6 +1398,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
             });
         }
 
+
+
         // Posko evakuasi: gambar tenda bulat (file gambar, bukan emoji)
         function poskoIcon() {
             return L.icon({
@@ -1523,70 +1525,120 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>`);
         }
 
-        // Rute evakuasi: tiap node WASPADA/BAHAYA ke posko terdekat (mengikuti jalan, OSRM).
-        // Bila layanan rute tidak tersedia, ditarik garis lurus putus-putus sebagai cadangan.
-        // ===== Rute evakuasi: node BAHAYA / WASPADA -> posko terdekat LEWAT JALAN (jalan kaki) =====
-        // Rute jalan kaki (OSRM profil foot, ikut jalan setapak) dihitung ke SEMUA posko, lalu dipilih
-        // yang terpendek. Ujung rute disambung ke titik node & posko (keduanya belum tentu tepat di jalan).
-        // Kalau layanan rute gagal, ditampilkan garis lurus putus-putus sebagai cadangan.
-        const RUTE_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
-        const lapisRute = L.layerGroup().addTo(map);
-        const menitJalan = m => Math.max(1, Math.round(m / 60));   // +-3,6 km/jam di jalan lereng
+        // ===== FITUR LOKASI PENGGUNA & RUTE EVAKUASI MANDIRI KE POSKO BARAT LAUT =====
 
-        async function ruteJalanKaki(a, b) {
-            const res = await fetch(`${RUTE_URL}${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`);
-            const d = await res.json();
-            if (!res.ok || d.code !== 'Ok' || !d.routes || !d.routes.length) throw new Error('rute tidak ditemukan');
-            const garis = d.routes[0].geometry.coordinates.map(([x, y]) => [y, x]);
-            const titik = [a, ...garis, b];
-            let jarak = 0;
-            for (let i = 1; i < titik.length; i++) jarak += map.distance(titik[i - 1], titik[i]);
-            return { titik, jarak };
+        let userMarker = null;
+        let userRouteLayer = L.layerGroup().addTo(map);
+        const menitJalan = m => Math.max(1, Math.round(m / 60));
+
+        // Ikon penanda Lokasi Anda (Titik Pink menyala)
+        function userLocationIcon() {
+            return L.divIcon({
+                className: '',
+                html: `<div style="position:relative;width:24px;height:24px">
+                         <span style="position:absolute;inset:-8px;border-radius:50%;background:#ec4899;opacity:.4;animation:larasPulse 1.6s ease-out infinite"></span>
+                         <div style="position:relative;background:#db2777;width:24px;height:24px;border-radius:50%;border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.5)"></div>
+                       </div>`,
+                iconSize: [24, 24],
+                iconAnchor: [12, 12],
+                popupAnchor: [0, -14],
+            });
         }
 
-        async function gambarRute(node) {
-            const a = [parseFloat(node.lat), parseFloat(node.lng)];
-            if (!POSKO.length || isNaN(a[0])) return;
-            const warna = node.status === 'BAHAYA' ? '#e11d48' : '#f59e0b';
-            
-            let targetPoskos = POSKO;
-            const namaNode = (node.node_name || '').toLowerCase();
-            
-            // Mengarahkan Node Selatan, Tenggara, dan Timur Kemiri secara khusus ke posko bawah (Posko Barat Laut)
-            if (namaNode.includes('selatan') || namaNode.includes('tenggara') || (namaNode.includes('timur') && !namaNode.includes('tebing'))) {
-                const poskoBawah = POSKO.find(p => 
-                    (p.nama && p.nama.toLowerCase().includes('barat laut')) ||
-                    (p.id && (p.id.toLowerCase().includes('barat_laut') || p.id.toLowerCase().includes('barat laut')))
-                );
-                if (poskoBawah) {
-                    targetPoskos = [poskoBawah];
+        // Mencari Posko Barat Laut Kemiri
+        function getPoskoBaratLaut() {
+            return POSKO.find(p => 
+                (p.nama && p.nama.toLowerCase().includes('barat laut')) ||
+                (p.id && (p.id.toLowerCase().includes('barat_laut') || p.id.toLowerCase().includes('barat laut')))
+            ) || POSKO[0];
+        }
+
+        // Membuat rute dari Lokasi Anda ke Posko Barat Laut dengan menghindari area silang (menggunakan waypoint pengalih)
+        async function buatRuteEvakuasiMandiri(userLatLng) {
+            userRouteLayer.clearLayers();
+            const poskoTujuan = getPoskoBaratLaut();
+            if (!poskoTujuan) return;
+
+            const targetLatLng = [poskoTujuan.lat, poskoTujuan.lng];
+
+            // Titik Waypoint pengalih (detour) untuk menghindari area jalan yang ditandai silang (X)
+            const detourLatLng = [userLatLng[0] + 0.0015, userLatLng[1] + 0.0012];
+
+            const OSRM_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
+            const url = `${OSRM_URL}${userLatLng[1]},${userLatLng[0]};${detourLatLng[1]},${detourLatLng[0]};${targetLatLng[1]},${targetLatLng[0]}?overview=full&geometries=geojson`;
+
+            let titikRute = [userLatLng, targetLatLng];
+            let jarakTotal = map.distance(userLatLng, targetLatLng);
+            let pakaiCadangan = false;
+
+            try {
+                const res = await fetch(url);
+                const data = await res.json();
+                if (res.ok && data.code === 'Ok' && data.routes && data.routes.length) {
+                    titikRute = data.routes[0].geometry.coordinates.map(([x, y]) => [y, x]);
+                    jarakTotal = data.routes[0].distance || jarakTotal;
+                } else {
+                    pakaiCadangan = true;
                 }
+            } catch (e) {
+                pakaiCadangan = true;
             }
 
-            const hasil = await Promise.all(targetPoskos.map(p =>
-                ruteJalanKaki(a, [p.lat, p.lng]).then(r => ({ ...r, p })).catch(() => null)));
-            const ok = hasil.filter(Boolean);
-            let pilih, cadangan = false;
-            if (ok.length) {
-                pilih = ok.reduce((x, y) => (y.jarak < x.jarak ? y : x));
-            } else {
-                const p = targetPoskos[0] || POSKO[0];
-                pilih = { p, titik: [a, [p.lat, p.lng]], jarak: map.distance(a, [p.lat, p.lng]) };
-                cadangan = true;
-            }
-            const info = `
+            const infoPopup = `
                 <div style="font-family: Inter, sans-serif; min-width: 190px;">
-                    <p style="font-weight:700; font-size:13px; margin:0 0 4px;">Rute evakuasi</p>
-                    <p style="font-size:12px; margin:0;"><b style="color:${warna}">${esc(node.node_name)}</b> &rarr; <b>${esc(pilih.p.nama)}</b></p>
-                    <p style="font-size:11px; color:#475569; margin:6px 0 0;">${cadangan ? 'Garis lurus (rute jalan belum tersedia)' : 'Lewat jalan, jalan kaki'}: +-${Math.round(pilih.jarak / 10) * 10} m, +-${menitJalan(pilih.jarak)} menit</p>
+                    <p style="font-weight:700; font-size:13px; margin:0 0 4px; color:#db2777;">Rute Evakuasi Anda</p>
+                    <p style="font-size:12px; margin:0;"><b>Lokasi Anda</b> &rarr; <b>${esc(poskoTujuan.nama)}</b></p>
+                    <p style="font-size:11px; color:#475569; margin:6px 0 0;">Menghindari area jalan ditutup. Estimasi: <b>±${Math.round(jarakTotal)} m</b> (${menitJalan(jarakTotal)} menit jalan kaki).</p>
                 </div>`;
-            // Garis putih di bawah agar rute tetap jelas terlihat di atas peta
-            L.polyline(pilih.titik, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(lapisRute);
-            L.polyline(pilih.titik, { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: cadangan ? '6, 8' : '10, 8' })
-                .addTo(lapisRute).bindPopup(info);
+
+            // Garis putih latar belakang agar kontras
+            L.polyline(titikRute, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(userRouteLayer);
+            // Garis utama rute evakuasi
+            L.polyline(titikRute, { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: pakaiCadangan ? '6, 8' : null })
+              .addTo(userRouteLayer)
+              .bindPopup(infoPopup);
         }
 
-        mapNodes.filter(n => n.status === 'BAHAYA' || n.status === 'WASPADA').forEach(n => { gambarRute(n); });
+        // Meminta izin lokasi GPS saat halaman dibuka dengan fallback dummy (titik pink di gambar)
+        function inisialisasiLokasiPengguna() {
+            const dummyLat = WILAYAH.center[0] - 0.0018;
+            const dummyLng = WILAYAH.center[1] + 0.0008;
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    pos => {
+                        tampilkanLokasiDanRute([pos.coords.latitude, pos.coords.longitude], false);
+                    },
+                    err => {
+                        console.warn('GPS tidak aktif atau izin ditolak, menggunakan posisi dummy (titik pink).');
+                        tampilkanLokasiDanRute([dummyLat, dummyLng], true);
+                    },
+                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+                );
+            } else {
+                tampilkanLokasiDanRute([dummyLat, dummyLng], true);
+            }
+        }
+
+        function tampilkanLokasiDanRute(latlng, isDummy) {
+            if (userMarker) map.removeLayer(userMarker);
+
+            userMarker = L.marker(latlng, { icon: userLocationIcon(), zIndexOffset: 1500 })
+                .addTo(map)
+                .bindPopup(`
+                    <div style="font-family: Inter, sans-serif; text-align: center;">
+                        <b>Lokasi Anda Saat Ini</b><br>
+                        <span style="font-size: 11px; color: #64748b;">${isDummy ? '(Mode Dummy / Sesuai Titik Pink)' : '(Terdeteksi dari GPS)'}</span>
+                    </div>
+                `);
+
+            map.setView(latlng, 16);
+            buatRuteEvakuasiMandiri(latlng);
+        }
+
+        // Jalankan otomatis
+        inisialisasiLokasiPengguna();
+    
 
         // ===== Tombol "?" di kanan bawah peta: panel legenda (arti setiap simbol) =====
         const LEGENDA_HTML = `
