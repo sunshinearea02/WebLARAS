@@ -1549,29 +1549,37 @@ svg.leaflet-image-layer.leaflet-interactive path {
             if (!POSKO.length || isNaN(a[0])) return;
             const warna = node.status === 'BAHAYA' ? '#e11d48' : '#f59e0b';
             
-            // Evaluasi rute jalan kaki ke SEMUA posko secara otomatis untuk mencari yang terdekat
-            const hasil = await Promise.all(POSKO.map(p =>
+            let targetPoskos = POSKO;
+            const namaNode = (node.node_name || '').toLowerCase();
+            
+            // Mengarahkan Node Selatan, Tenggara, dan Timur Kemiri secara khusus ke posko bawah (Posko Barat Laut)
+            if (namaNode.includes('selatan') || namaNode.includes('tenggara') || (namaNode.includes('timur') && !namaNode.includes('tebing'))) {
+                const poskoBawah = POSKO.find(p => 
+                    (p.nama && p.nama.toLowerCase().includes('barat laut')) ||
+                    (p.id && (p.id.toLowerCase().includes('barat_laut') || p.id.toLowerCase().includes('barat laut')))
+                );
+                if (poskoBawah) {
+                    targetPoskos = [poskoBawah];
+                }
+            }
+
+            const hasil = await Promise.all(targetPoskos.map(p =>
                 ruteJalanKaki(a, [p.lat, p.lng]).then(r => ({ ...r, p })).catch(() => null)));
             const ok = hasil.filter(Boolean);
             let pilih, cadangan = false;
-
             if (ok.length) {
-                // Otomatis memilih posko dengan jarak terpendek (hasil kalkulasi rute OSRM)
                 pilih = ok.reduce((x, y) => (y.jarak < x.jarak ? y : x));
             } else {
-                // Fallback jika layanan rute gagal: pilih posko terdekat berdasarkan garis lurus
-                const p = POSKO.reduce((x, y) => (map.distance(a, [y.lat, y.lng]) < map.distance(a, [x.lat, x.lng]) ? y : x));
+                const p = targetPoskos[0] || POSKO[0];
                 pilih = { p, titik: [a, [p.lat, p.lng]], jarak: map.distance(a, [p.lat, p.lng]) };
                 cadangan = true;
             }
-
             const info = `
                 <div style="font-family: Inter, sans-serif; min-width: 190px;">
                     <p style="font-weight:700; font-size:13px; margin:0 0 4px;">Rute evakuasi</p>
                     <p style="font-size:12px; margin:0;"><b style="color:${warna}">${esc(node.node_name)}</b> &rarr; <b>${esc(pilih.p.nama)}</b></p>
                     <p style="font-size:11px; color:#475569; margin:6px 0 0;">${cadangan ? 'Garis lurus (rute jalan belum tersedia)' : 'Lewat jalan, jalan kaki'}: +-${Math.round(pilih.jarak / 10) * 10} m, +-${menitJalan(pilih.jarak)} menit</p>
                 </div>`;
-            
             // Garis putih di bawah agar rute tetap jelas terlihat di atas peta
             L.polyline(pilih.titik, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(lapisRute);
             L.polyline(pilih.titik, { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: cadangan ? '6, 8' : '10, 8' })
