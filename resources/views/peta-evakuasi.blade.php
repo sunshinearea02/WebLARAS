@@ -1525,11 +1525,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>`);
         }
 
-        // ===== FITUR LOKASI PENGGUNA & RUTE EVAKUASI MANDIRI KE POSKO BARAT LAUT =====
+      
+        // ===== POSISI LOKASI ANDA & RUTE EVAKUASI MENGHINDARI AREA PERBAIKAN JALAN =====
 
         let userMarker = null;
         let userRouteLayer = L.layerGroup().addTo(map);
         const menitJalan = m => Math.max(1, Math.round(m / 60));
+
+        // Koordinat Lokasi Anda saat ini (Titik Pink)
+        const USER_LAT = -7.662301;
+        const USER_LNG = 112.515438;
+
+        // Titik area perbaikan jalan / penutupan (Silang Hijau Mudar):
+        // 1. -7.663360, 112.514131
+        // 2. -7.662528, 112.514244
 
         // Ikon penanda Lokasi Anda (Titik Pink menyala)
         function userLocationIcon() {
@@ -1553,7 +1562,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
             ) || POSKO[0];
         }
 
-        // Membuat rute dari Lokasi Anda ke Posko Barat Laut dengan menghindari area silang (menggunakan waypoint pengalih)
+        // Membuat rute evakuasi dari Lokasi Anda ke Posko Barat Laut melalui jalur utara (menghindari silang hijau)
         async function buatRuteEvakuasiMandiri(userLatLng) {
             userRouteLayer.clearLayers();
             const poskoTujuan = getPoskoBaratLaut();
@@ -1561,11 +1570,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
             const targetLatLng = [poskoTujuan.lat, poskoTujuan.lng];
 
-            // Titik Waypoint pengalih (detour) untuk menghindari area jalan yang ditandai silang (X)
-            const detourLatLng = [userLatLng[0] + 0.0015, userLatLng[1] + 0.0012];
+            // Titik Waypoint pengalih (detour) ke arah utara untuk mengikuti garis biru muda dan menghindari area perbaikan
+            const detourLatLng1 = [-7.661200, 112.515200];
+            const detourLatLng2 = [-7.660800, 112.513500];
 
             const OSRM_URL = 'https://routing.openstreetmap.de/routed-foot/route/v1/foot/';
-            const url = `${OSRM_URL}${userLatLng[1]},${userLatLng[0]};${detourLatLng[1]},${detourLatLng[0]};${targetLatLng[1]},${targetLatLng[0]}?overview=full&geometries=geojson`;
+            // Permintaan OSRM dengan waypoint tambahan agar rute memutar ke jalur aman
+            const url = `${OSRM_URL}${userLatLng[1]},${userLatLng[0]};${detourLatLng1[1]},${detourLatLng1[0]};${detourLatLng2[1]},${detourLatLng2[0]};${targetLatLng[1]},${targetLatLng[0]}?overview=full&geometries=geojson`;
 
             let titikRute = [userLatLng, targetLatLng];
             let jarakTotal = map.distance(userLatLng, targetLatLng);
@@ -1586,57 +1597,42 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
             const infoPopup = `
                 <div style="font-family: Inter, sans-serif; min-width: 190px;">
-                    <p style="font-weight:700; font-size:13px; margin:0 0 4px; color:#db2777;">Rute Evakuasi Anda</p>
+                    <p style="font-weight:700; font-size:13px; margin:0 0 4px; color:#2563eb;">Rute Evakuasi Anda</p>
                     <p style="font-size:12px; margin:0;"><b>Lokasi Anda</b> &rarr; <b>${esc(poskoTujuan.nama)}</b></p>
-                    <p style="font-size:11px; color:#475569; margin:6px 0 0;">Menghindari area jalan ditutup. Estimasi: <b>±${Math.round(jarakTotal)} m</b> (${menitJalan(jarakTotal)} menit jalan kaki).</p>
+                    <p style="font-size:11px; color:#475569; margin:6px 0 0;">Menghindari area perbaikan jalan. Estimasi: <b>±${Math.round(jarakTotal)} m</b> (${menitJalan(jarakTotal)} menit jalan kaki).</p>
                 </div>`;
 
-            // Garis putih latar belakang agar kontras
+            // Garis latar belakang putih agar kontras di peta
             L.polyline(titikRute, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(userRouteLayer);
-            // Garis utama rute evakuasi
-            L.polyline(titikRute, { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: pakaiCadangan ? '6, 8' : null })
+            // Garis utama rute evakuasi (warna biru muda sesuai permintaan)
+            L.polyline(titikRute, { color: '#38bdf8', weight: 6, opacity: 0.9, dashArray: pakaiCadangan ? '6, 8' : null })
               .addTo(userRouteLayer)
               .bindPopup(infoPopup);
         }
 
-        // Meminta izin lokasi GPS saat halaman dibuka dengan fallback dummy (titik pink di gambar)
+        // Menampilkan marker lokasi pengguna berdasarkan koordinat tetap (-7.662301, 112.515438)
         function inisialisasiLokasiPengguna() {
-            const dummyLat = WILAYAH.center[0] - 0.0018;
-            const dummyLng = WILAYAH.center[1] + 0.0008;
+            const userLatLng = [USER_LAT, USER_LNG];
 
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    pos => {
-                        tampilkanLokasiDanRute([pos.coords.latitude, pos.coords.longitude], false);
-                    },
-                    err => {
-                        console.warn('GPS tidak aktif atau izin ditolak, menggunakan posisi dummy (titik pink).');
-                        tampilkanLokasiDanRute([dummyLat, dummyLng], true);
-                    },
-                    { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-                );
-            } else {
-                tampilkanLokasiDanRute([dummyLat, dummyLng], true);
-            }
-        }
-
-        function tampilkanLokasiDanRute(latlng, isDummy) {
             if (userMarker) map.removeLayer(userMarker);
 
-            userMarker = L.marker(latlng, { icon: userLocationIcon(), zIndexOffset: 1500 })
+            userMarker = L.marker(userLatLng, { icon: userLocationIcon(), zIndexOffset: 1500 })
                 .addTo(map)
                 .bindPopup(`
                     <div style="font-family: Inter, sans-serif; text-align: center;">
                         <b>Lokasi Anda Saat Ini</b><br>
-                        <span style="font-size: 11px; color: #64748b;">${isDummy ? '(Mode Dummy / Sesuai Titik Pink)' : '(Terdeteksi dari GPS)'}</span>
+                        <span style="font-size: 11px; color: #64748b;">(-7.662301, 112.515438)</span>
                     </div>
                 `);
 
-            map.setView(latlng, 16);
-            buatRuteEvakuasiMandiri(latlng);
+            // Pusatkan peta ke lokasi Anda
+            map.setView(userLatLng, 16);
+
+            // Buat rute otomatis menuju Posko Barat Laut Kemiri dengan menghindari area perbaikan jalan
+            buatRuteEvakuasiMandiri(userLatLng);
         }
 
-        // Jalankan otomatis
+        // Jalankan inisialisasi posisi dan rute
         inisialisasiLokasiPengguna();
     
 
