@@ -1548,14 +1548,30 @@ svg.leaflet-image-layer.leaflet-interactive path {
             const a = [parseFloat(node.lat), parseFloat(node.lng)];
             if (!POSKO.length || isNaN(a[0])) return;
             const warna = node.status === 'BAHAYA' ? '#e11d48' : '#f59e0b';
-            const hasil = await Promise.all(POSKO.map(p =>
+            
+            // Menentukan posko tujuan berdasarkan nama node
+            let targetPoskos = POSKO;
+            const namaNode = (node.node_name || '').toLowerCase();
+            
+            // Jika node termasuk selatan, tenggara, atau timur, arahkan khusus ke Posko Barat Laut
+            if (namaNode.includes('selatan') || namaNode.includes('tenggara') || namaNode.includes('timur')) {
+                const poskoBaratLaut = POSKO.find(p => 
+                    (p.nama && p.nama.toLowerCase().includes('barat laut')) ||
+                    (p.id && (p.id.toLowerCase().includes('barat_laut') || p.id.toLowerCase().includes('barat laut')))
+                );
+                if (poskoBaratLaut) {
+                    targetPoskos = [poskoBaratLaut];
+                }
+            }
+
+            const hasil = await Promise.all(targetPoskos.map(p =>
                 ruteJalanKaki(a, [p.lat, p.lng]).then(r => ({ ...r, p })).catch(() => null)));
             const ok = hasil.filter(Boolean);
             let pilih, cadangan = false;
             if (ok.length) {
                 pilih = ok.reduce((x, y) => (y.jarak < x.jarak ? y : x));
             } else {
-                const p = POSKO.reduce((x, y) => (map.distance(a, [y.lat, y.lng]) < map.distance(a, [x.lat, x.lng]) ? y : x));
+                const p = targetPoskos[0] || POSKO[0];
                 pilih = { p, titik: [a, [p.lat, p.lng]], jarak: map.distance(a, [p.lat, p.lng]) };
                 cadangan = true;
             }
