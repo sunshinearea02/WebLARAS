@@ -1643,7 +1643,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 map.addControl(buatLegenda());
                 const bingkai = () => { map.invalidateSize(); if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 16 }); else map.setView([-7.661646, 112.516094], 15); };
                 bingkai();
-                if (document.readyState !== 'complete') window.addEventListener('load', bingkai, { once: true });
+                let petaDisentuh = false;   // setelah peta disentuh, posisi & zoom pengguna tidak diganggu
+                ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(ev =>
+                    map.getContainer().addEventListener(ev, () => { petaDisentuh = true; }, { once: true, passive: true }));
+                if (document.readyState !== 'complete') window.addEventListener('load', () => { if (!petaDisentuh) bingkai(); }, { once: true });
+                if (window.ResizeObserver) new ResizeObserver(() => { if (!petaDisentuh) bingkai(); }).observe(map.getContainer());
                 window.larasHomeMap = map;
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

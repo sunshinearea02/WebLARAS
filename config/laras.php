@@ -29,33 +29,23 @@ return [
         'lng'    => 112.516094,
     ],
 
+    // Posko evakuasi di sisi barat-utara lereng (bekas titik NODE-09 & NODE-10).
     'posko' => [
         [
-            'id'        => 'Posko Balai Desa Kemiri',
-            'nama'      => 'Posko Balai Desa Kemiri',
-            'lokasi'    => 'Balai Desa Kemiri, Jl. Raya Gondang-Pacet',
-            'lat'       => -7.65343,
-            'lng'       => 112.52299,
-            'kapasitas' => 150,
-        ],
-        [
-            // Titik kumpul di sisi timur (samping lereng, bukan di bawahnya): jalan permukiman,
-            // datar (+-0 derajat), 533 mdpl, +-1 km dari stasiun. Koordinat dari analisis medan,
-            // belum bangunan resmi: ganti dengan lokasi yang disepakati desa/BPBD.
-            'id'        => 'Posko Titik Kumpul Timur',
-            'nama'      => 'Posko Titik Kumpul Timur',
-            'lokasi'    => 'Jalan permukiman perbatasan Kemiri - Sajen, Kec. Pacet',
-            'lat'       => -7.662144,
-            'lng'       => 112.525401,
+            'id'        => 'Posko Utara Barat Kemiri',
+            'nama'      => 'Posko Utara Barat Kemiri',
+            'lokasi'    => 'Sisi utara-barat lereng Desa Kemiri, 506 mdpl, +-270 m dari Stasiun Utama',
+            'lat'       => -7.659701,
+            'lng'       => 112.514685,
             'kapasitas' => 100,
         ],
         [
-            'id'        => 'Posko Kecamatan Pacet',
-            'nama'      => 'Posko Utama Kecamatan Pacet',
-            'lokasi'    => 'Kantor Kecamatan Pacet, Jl. Raya Pandanarum-Pacet, Desa Petak',
-            'lat'       => -7.65052,
-            'lng'       => 112.53732,
-            'kapasitas' => 300,
+            'id'        => 'Posko Barat Laut Kemiri',
+            'nama'      => 'Posko Barat Laut Kemiri',
+            'lokasi'    => 'Sisi barat laut Desa Kemiri, area relatif datar, 536 mdpl, +-390 m dari Stasiun Utama',
+            'lat'       => -7.660199,
+            'lng'       => 112.512923,
+            'kapasitas' => 100,
         ],
     ],
 ];

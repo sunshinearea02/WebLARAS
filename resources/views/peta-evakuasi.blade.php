@@ -1740,7 +1740,13 @@ svg.leaflet-image-layer.leaflet-interactive path {
         // kadang belum final sehingga zoom mentok di maksimum.
         const bingkai = () => { map.invalidateSize(); if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 17 }); };
         bingkai();
-        if (document.readyState !== 'complete') window.addEventListener('load', bingkai, { once: true });
+        if (document.readyState !== 'complete') window.addEventListener('load', () => { if (!petaDisentuh) bingkai(); }, { once: true });
+        // Bingkai ulang setiap ukuran kotak peta berubah (CSS/font selesai dimuat), sampai pengguna
+        // menyentuh peta; setelah itu posisi & zoom pilihan pengguna tidak diganggu.
+        let petaDisentuh = false;
+        ['pointerdown', 'wheel', 'touchstart', 'keydown'].forEach(ev =>
+            map.getContainer().addEventListener(ev, () => { petaDisentuh = true; }, { once: true, passive: true }));
+        if (window.ResizeObserver) new ResizeObserver(() => { if (!petaDisentuh) bingkai(); }).observe(map.getContainer());
 
         // ===== Fitur check-in (hanya dirender untuk Admin & Kader) =====
         const selectPosko = document.getElementById('selectPosko');
