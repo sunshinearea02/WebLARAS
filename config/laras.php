@@ -39,6 +39,17 @@ return [
             'kapasitas' => 150,
         ],
         [
+            // Titik kumpul di sisi timur (samping lereng, bukan di bawahnya): jalan permukiman,
+            // datar (+-0 derajat), 533 mdpl, +-1 km dari stasiun. Koordinat dari analisis medan,
+            // belum bangunan resmi: ganti dengan lokasi yang disepakati desa/BPBD.
+            'id'        => 'Posko Titik Kumpul Timur',
+            'nama'      => 'Posko Titik Kumpul Timur',
+            'lokasi'    => 'Jalan permukiman perbatasan Kemiri - Sajen, Kec. Pacet',
+            'lat'       => -7.662144,
+            'lng'       => 112.525401,
+            'kapasitas' => 100,
+        ],
+        [
             'id'        => 'Posko Kecamatan Pacet',
             'nama'      => 'Posko Utama Kecamatan Pacet',
             'lokasi'    => 'Kantor Kecamatan Pacet, Jl. Raya Pandanarum-Pacet, Desa Petak',
