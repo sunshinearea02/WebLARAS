@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Stasiun utama LARAS (Raspberry Pi gateway): menara antena ungu -->
+  <rect x="3" y="3" width="42" height="42" rx="12" fill="#6d28d9" stroke="#ffffff" stroke-width="3"/>
+  <g fill="none" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M17.5 16.5a9 9 0 0 0 0 11"/>
+    <path d="M30.5 16.5a9 9 0 0 1 0 11"/>
+    <path d="M13 12.5a15 15 0 0 0 0 19"/>
+    <path d="M35 12.5a15 15 0 0 1 0 19"/>
+    <path d="M24 24 18.5 38M24 24l5.5 14M20.3 33.5h7.4"/>
+  </g>
+  <circle cx="24" cy="22" r="3.2" fill="#ffffff"/>
+</svg>

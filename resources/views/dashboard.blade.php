@@ -1555,6 +1555,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         (function () {
             const nodes = @json(collect($nodes)->filter(fn ($n) => $n->lat !== null && $n->lng !== null)->values());
             const posko = @json($posko);
+            const stasiun = @json(config('laras.stasiun'));
             const colors = { AMAN: '#10B981', WASPADA: '#F59E0B', BAHAYA: '#E11D48' };
             const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
             const fmt = (v, u) => (v === null || v === undefined) ? '-' : `${v}${u}`;
@@ -1586,6 +1587,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#f59e0b"></span></div><div><b>Oranye - Waspada</b><span>Tanah mulai jenuh air atau bergerak. Bersiap mengungsi.</span></div></div>
                 <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#e11d48"></span></div><div><b>Merah - Bahaya</b><span>Risiko longsor tinggi. Segera mengungsi ke posko.</span></div></div>
                 <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#94a3b8"></span></div><div><b>Abu-abu - Belum ada data</b><span>Node belum mengirim data terbaru.</span></div></div>
+                <div class="legenda-item"><div class="simbol"><img src="/images/icons/stasiun.svg" alt=""></div><div><b>Ungu - Stasiun utama</b><span>Raspberry Pi: menerima data semua node dan menjalankan analisis AI.</span></div></div>
                 <p class="legenda-grup">Evakuasi</p>
                 <div class="legenda-item"><div class="simbol"><img src="/images/icons/posko.webp" alt="" style="border-radius:9999px"></div><div><b>Posko evakuasi</b><span>Tempat mengungsi. Rute lengkap ada di halaman Peta Evakuasi.</span></div></div>`;
 
@@ -1624,15 +1626,24 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <p style="font-size:11px;color:#475569;margin:8px 0 0">Tanah dangkal ${fmt(n.moisture, '%')} | dalam ${fmt(n.moisture_deep, '%')}<br>Hujan ${fmt(n.rain, ' mm')} | Kemiringan ${fmt(n.tilt, '°')}</p>
                             ${n.last_at ? `<p style="font-size:10px;color:#94a3b8;margin:4px 0 0">Data ${esc(n.last_at)}</p>` : ''}
                         </div>`);
-                    if (n.status !== 'UNKNOWN') pts.push([n.lat, n.lng]);   // node tanpa data tidak ikut dibingkai
+                    pts.push([n.lat, n.lng]);
                 });
                 posko.forEach(p => {
                     L.marker([p.lat, p.lng], { icon: poskoIcon() }).addTo(map)
                         .bindPopup(`<div style="font-family:Inter,sans-serif"><b>${esc(p.nama)}</b><br><span style="font-size:11px;color:#64748b">${esc(p.lokasi)}</span>${p.kapasitas ? `<br><span style="font-size:11px">Kapasitas ${esc(p.kapasitas)} orang</span>` : ''}</div>`);
-                    pts.push([p.lat, p.lng]);
+                    // posko dalam radius 2 km dari stasiun ikut dibingkai; yang jauh tetap tampil
+                    if (!stasiun || L.latLng(stasiun.lat, stasiun.lng).distanceTo([p.lat, p.lng]) <= 2000) pts.push([p.lat, p.lng]);
                 });
+                if (stasiun) {   // stasiun utama (Raspberry Pi gateway): penanda ungu
+                    L.marker([stasiun.lat, stasiun.lng], { zIndexOffset: 800,
+                        icon: L.icon({ iconUrl: '/images/icons/stasiun.svg', iconSize: [32, 32], iconAnchor: [16, 16], popupAnchor: [0, -16] }) })
+                        .addTo(map).bindPopup(`<div style="font-family:Inter,sans-serif"><b style="color:#6d28d9">${esc(stasiun.nama)}</b><br><span style="font-size:11px;color:#64748b">${esc(stasiun.ket)}</span></div>`);
+                    pts.push([stasiun.lat, stasiun.lng]);
+                }
                 map.addControl(buatLegenda());
-                if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 15 }); else map.setView([-7.668, 112.548], 13);
+                const bingkai = () => { map.invalidateSize(); if (pts.length) map.fitBounds(pts, { padding: [30, 30], maxZoom: 16 }); else map.setView([-7.661646, 112.516094], 15); };
+                bingkai();
+                if (document.readyState !== 'complete') window.addEventListener('load', bingkai, { once: true });
                 window.larasHomeMap = map;
             }
             if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init); else init();

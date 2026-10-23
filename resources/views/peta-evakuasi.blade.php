@@ -1510,6 +1510,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>`);
         });
 
+        // Stasiun utama (Raspberry Pi gateway): penanda ungu, berbeda dari node & posko
+        const STASIUN = WILAYAH.stasiun;
+        if (STASIUN) {
+            L.marker([STASIUN.lat, STASIUN.lng], {
+                icon: L.icon({ iconUrl: '/images/icons/stasiun.svg', iconSize: [36, 36], iconAnchor: [18, 18], popupAnchor: [0, -18] }),
+                zIndexOffset: 800,
+            }).addTo(map).bindPopup(`
+                <div style="font-family: Inter, sans-serif; min-width: 180px;">
+                    <p style="font-weight:700; font-size:13px; margin:0 0 2px; color:#6d28d9">${esc(STASIUN.nama)}</p>
+                    <p style="font-size:11px; color:#64748b; margin:0 0 4px;">${esc(STASIUN.lokasi)}</p>
+                    <p style="font-size:11px; color:#334155; margin:0;">${esc(STASIUN.ket)}</p>
+                </div>`);
+        }
+
         // Rute evakuasi: tiap node WASPADA/BAHAYA ke posko terdekat (mengikuti jalan, OSRM).
         // Bila layanan rute tidak tersedia, ditarik garis lurus putus-putus sebagai cadangan.
         const nearestPosko = (lat, lng) => POSKO.reduce((best, p) => {
@@ -1552,6 +1566,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div><b>Merah - Bahaya</b><span>Risiko longsor tinggi. Segera mengungsi lewat rute evakuasi.</span></div></div>
             <div class="legenda-item"><div class="simbol"><span class="titik" style="background:#94a3b8"></span></div>
                 <div><b>Abu-abu - Belum ada data</b><span>Node belum mengirim data terbaru.</span></div></div>
+
+            <div class="legenda-item"><div class="simbol"><img src="/images/icons/stasiun.svg" alt=""></div>
+                <div><b>Ungu - Stasiun utama</b><span>Raspberry Pi: menerima data semua node lewat LoRa dan menjalankan analisis AI.</span></div></div>
 
             <p class="legenda-grup">Evakuasi</p>
             <div class="legenda-item"><div class="simbol"><img src="/images/icons/posko.webp" alt="" style="border-radius:9999px"></div>
@@ -1713,10 +1730,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
         }
 
 
-        // Tampilkan semua node yang aktif + posko dalam satu layar (node yang belum pernah kirim data tidak ikut dibingkai)
-        const nodeAktif = mapNodes.filter(n => n.status !== 'UNKNOWN');
-        const pts = (nodeAktif.length ? nodeAktif : mapNodes).map(n => [parseFloat(n.lat), parseFloat(n.lng)]).concat(POSKO.map(p => [p.lat, p.lng]));
-        if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [50, 50], maxZoom: 17 });
+        // Bingkai peta: semua node + stasiun utama + posko dalam radius 2 km dari stasiun
+        // (posko yang jauh tetap tampil, tapi tidak ikut dibingkai supaya node tidak terlihat kecil).
+        const pts = mapNodes.map(n => [parseFloat(n.lat), parseFloat(n.lng)]);
+        if (STASIUN) pts.push([STASIUN.lat, STASIUN.lng]);
+        const acuan = STASIUN ? L.latLng(STASIUN.lat, STASIUN.lng) : null;
+        POSKO.forEach(p => { if (!acuan || acuan.distanceTo([p.lat, p.lng]) <= 2000) pts.push([p.lat, p.lng]); });
+        // Dibingkai ulang setelah halaman selesai dimuat: saat skrip jalan, ukuran kotak peta
+        // kadang belum final sehingga zoom mentok di maksimum.
+        const bingkai = () => { map.invalidateSize(); if (pts.length > 1) map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 17 }); };
+        bingkai();
+        if (document.readyState !== 'complete') window.addEventListener('load', bingkai, { once: true });
 
         // ===== Fitur check-in (hanya dirender untuk Admin & Kader) =====
         const selectPosko = document.getElementById('selectPosko');

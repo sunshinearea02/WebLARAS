@@ -49,6 +49,7 @@ class EvacuationMapController extends Controller
             'kabupaten' => config('laras.kabupaten'),
             'center'    => config('laras.center'),
             'zoom'      => config('laras.zoom'),
+            'stasiun'   => config('laras.stasiun'),
         ];
 
         // Menentukan hak akses kelola (ubah sesuai kebutuhan otorisasi aplikasi Anda)
