@@ -1007,6 +1007,11 @@ svg.leaflet-image-layer.leaflet-interactive path {
     .legenda-item span { display: block; font-size: 11.5px; color: #475569; line-height: 1.4; }
     .legenda-plus { width: 24px; height: 24px; border-radius: 9999px; background: #d97706; display: flex; align-items: center; justify-content: center; }
     .legenda-plus img { width: 14px !important; height: 14px !important; }
+
+    /* Penanda "Posisi Anda": pin lokasi merah muda + cincin denyut di ujung pin */
+    @keyframes posisiPulse { 0% { transform: scale(.5); opacity: .6; } 100% { transform: scale(2); opacity: 0; } }
+    .posisi-saya-ring { position: absolute; left: 6px; top: 36px; width: 22px; height: 10px; border-radius: 50%; background: #db2777; animation: posisiPulse 1.8s ease-out infinite; }
+    .legenda-pin { width: 20px; height: 26px; }
 </style>
 </head>
 <body class="bg-air-50 text-deep-900 min-h-screen pb-12">
@@ -1021,8 +1026,8 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <span class="section-tag">Navigasi Penyelamatan</span>
                 <h2 class="text-[1.75rem] sm:text-[2rem] font-bold text-deep-900 mt-2">Peta Evakuasi Kecamatan {{ $wilayah['kecamatan'] }}</h2>
                 <p class="text-deep-500 mt-1 max-w-2xl text-[14px] leading-relaxed">
-                    Kab. {{ $wilayah['kabupaten'] }}@if(!empty($wilayah['daftarDesa'])), mencakup Desa {{ implode(', ', $wilayah['daftarDesa']) }}@endif. Rute evakuasi otomatis ditarik dari node berstatus
-                    Waspada/Bahaya menuju posko terdekat. Tekan tombol tanda tanya di pojok kanan bawah peta untuk melihat arti setiap simbol.
+                    Kab. {{ $wilayah['kabupaten'] }}@if(!empty($wilayah['daftarDesa'])), mencakup Desa {{ implode(', ', $wilayah['daftarDesa']) }}@endif. Rute evakuasi ditarik dari posisi Anda saat ini
+                    menuju posko terdekat dan menghindari jalan yang sedang diperbaiki. Tekan tombol tanda tanya di pojok kanan bawah peta untuk melihat arti setiap simbol.
                 </p>
             </div>
         </div>
@@ -1523,6 +1528,66 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 </div>`);
         }
 
+        // ===== Posisi saya saat ini + titik jalan yang sedang diperbaiki =====
+        // Ubah koordinat di bawah ini bila posisi / titik perbaikan berubah.
+        const POSISI_SAYA = [-7.662301, 112.515438];
+
+        // Dua titik perbaikan jalan: jalan tidak bisa dilewati, rute evakuasi harus memutar.
+        const JALAN_PERBAIKAN = [
+            { lat: -7.663360, lng: 112.514131 },
+            { lat: -7.662528, lng: 112.514244 },
+        ];
+
+        // Titik-titik bantu (urut dari posisi saya) yang memaksa rute memutar lewat jalan sebelah utara
+        // sehingga tidak melewati kedua titik perbaikan, lalu bergabung ke jalan utama menuju posko.
+        // Koordinatnya diambil dari garis biru muda di tangkapan layar; OSRM akan "menempelkannya"
+        // ke jalan terdekat. Kalau rute meleset ke jalan lain, geser koordinat titik yang bersangkutan.
+        const RUTE_VIA = [
+            [-7.661847, 112.515123],
+            [-7.661082, 112.515305],
+            [-7.660486, 112.514801],
+            [-7.660794, 112.514415],
+            [-7.661539, 112.514061],
+            [-7.662017, 112.513406],
+            [-7.660826, 112.512473],
+        ];
+
+        // Pin lokasi "Posisi Anda" (SVG di dalam divIcon, tanpa file gambar tambahan)
+        function posisiSayaIcon() {
+            return L.divIcon({
+                className: '',
+                html: `<div style="position:relative;width:34px;height:46px">
+                         <span class="posisi-saya-ring"></span>
+                         <svg viewBox="0 0 34 44" width="34" height="44" style="position:absolute;left:0;top:0;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))">
+                             <path d="M17 1C8.7 1 2 7.6 2 15.8 2 27 17 43 17 43s15-16 15-27.2C32 7.6 25.3 1 17 1z" fill="#db2777" stroke="#fff" stroke-width="2.5"/>
+                             <circle cx="17" cy="15.5" r="5.5" fill="#fff"/>
+                         </svg>
+                         <span style="position:absolute;left:38px;top:6px;white-space:nowrap;font:700 11px Inter,sans-serif;color:#0f172a;background:rgba(255,255,255,.92);padding:1px 6px;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.2)">Posisi Anda</span>
+                       </div>`,
+                iconSize: [34, 46],
+                iconAnchor: [17, 43],
+                popupAnchor: [0, -40],
+            });
+        }
+
+        L.marker(POSISI_SAYA, { icon: posisiSayaIcon(), zIndexOffset: 1200 })
+            .addTo(map)
+            .bindPopup(`
+                <div style="font-family: Inter, sans-serif; min-width: 170px;">
+                    <p style="font-weight:700; font-size:13px; margin:0 0 2px; color:#be185d">Posisi Anda saat ini</p>
+                    <p style="font-size:11px; color:#64748b; margin:0;">${POSISI_SAYA[0].toFixed(6)}, ${POSISI_SAYA[1].toFixed(6)}</p>
+                </div>`);
+
+        JALAN_PERBAIKAN.forEach(j => {
+            L.marker([j.lat, j.lng], { icon: hazardIcon('Perbaikan Jalan'), zIndexOffset: 700 })
+                .addTo(map)
+                .bindPopup(`
+                <div style="font-family: Inter, sans-serif; min-width: 190px;">
+                    <p style="font-weight:700; font-size:13px; color:#b45309; margin:0 0 4px; display:flex; align-items:center; gap:6px;"><img src="${hazardImage('Perbaikan Jalan')}" alt="" style="width:18px;height:18px"> Perbaikan jalan</p>
+                    <p style="font-size:11px; color:#475569; margin:0;">Jalan sedang diperbaiki dan tidak bisa dilewati. Rute evakuasi dialihkan.</p>
+                </div>`);
+        });
+
         // Rute evakuasi: tiap node WASPADA/BAHAYA ke posko terdekat (mengikuti jalan, OSRM).
         // Bila layanan rute tidak tersedia, ditarik garis lurus putus-putus sebagai cadangan.
         // ===== Rute evakuasi: node BAHAYA / WASPADA -> posko terdekat LEWAT JALAN (jalan kaki) =====
@@ -1533,16 +1598,20 @@ svg.leaflet-image-layer.leaflet-interactive path {
         const lapisRute = L.layerGroup().addTo(map);
         const menitJalan = m => Math.max(1, Math.round(m / 60));   // +-3,6 km/jam di jalan lereng
 
-        async function ruteJalanKaki(a, b) {
-            const res = await fetch(`${RUTE_URL}${a[1]},${a[0]};${b[1]},${b[0]}?overview=full&geometries=geojson`);
+        // Rute jalan kaki lewat beberapa titik berurutan: [awal, via1, via2, ..., tujuan]
+        async function ruteMelalui(daftar) {
+            const koordinat = daftar.map(t => `${t[1]},${t[0]}`).join(';');
+            const res = await fetch(`${RUTE_URL}${koordinat}?overview=full&geometries=geojson`);
             const d = await res.json();
             if (!res.ok || d.code !== 'Ok' || !d.routes || !d.routes.length) throw new Error('rute tidak ditemukan');
             const garis = d.routes[0].geometry.coordinates.map(([x, y]) => [y, x]);
-            const titik = [a, ...garis, b];
+            const titik = [daftar[0], ...garis, daftar[daftar.length - 1]];
             let jarak = 0;
             for (let i = 1; i < titik.length; i++) jarak += map.distance(titik[i - 1], titik[i]);
             return { titik, jarak };
         }
+
+        const ruteJalanKaki = (a, b) => ruteMelalui([a, b]);
 
         async function gambarRute(node) {
             const a = [parseFloat(node.lat), parseFloat(node.lng)];
@@ -1578,7 +1647,50 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 .addTo(lapisRute).bindPopup(info);
         }
 
-        mapNodes.filter(n => n.status === 'BAHAYA' || n.status === 'WASPADA').forEach(n => { gambarRute(n); });
+        // Rute evakuasi dari POSISI SAYA ke posko terdekat, lewat titik bantu RUTE_VIA
+        // sehingga menghindari kedua titik perbaikan jalan.
+        async function gambarRuteSaya() {
+            if (!POSKO.length) return;
+
+            // Hitung rute ke SEMUA posko lewat titik bantu yang sama, lalu pilih yang terpendek
+            const hasil = await Promise.all(POSKO.map(p =>
+                ruteMelalui([POSISI_SAYA, ...RUTE_VIA, [p.lat, p.lng]]).then(r => ({ ...r, p })).catch(() => null)));
+            const ok = hasil.filter(Boolean);
+            let pilih, cadangan = false;
+
+            if (ok.length) {
+                pilih = ok.reduce((x, y) => (y.jarak < x.jarak ? y : x));
+            } else {
+                // Layanan rute gagal: tarik garis lurus lewat titik bantu ke posko terdekat dari titik bantu terakhir
+                const akhir = RUTE_VIA[RUTE_VIA.length - 1];
+                const p = POSKO.reduce((x, y) => (map.distance(akhir, [y.lat, y.lng]) < map.distance(akhir, [x.lat, x.lng]) ? y : x));
+                const titik = [POSISI_SAYA, ...RUTE_VIA, [p.lat, p.lng]];
+                let jarak = 0;
+                for (let i = 1; i < titik.length; i++) jarak += map.distance(titik[i - 1], titik[i]);
+                pilih = { p, titik, jarak };
+                cadangan = true;
+            }
+
+            const info = `
+                <div style="font-family: Inter, sans-serif; min-width: 190px;">
+                    <p style="font-weight:700; font-size:13px; margin:0 0 4px;">Rute evakuasi</p>
+                    <p style="font-size:12px; margin:0;"><b style="color:#be185d">Posisi Anda</b> &rarr; <b>${esc(pilih.p.nama)}</b></p>
+                    <p style="font-size:11px; color:#475569; margin:6px 0 0;">${cadangan ? 'Garis lurus (rute jalan belum tersedia)' : 'Lewat jalan, jalan kaki'}: +-${Math.round(pilih.jarak / 10) * 10} m, +-${menitJalan(pilih.jarak)} menit</p>
+                    <p style="font-size:11px; color:#b45309; margin:4px 0 0;">Menghindari ${JALAN_PERBAIKAN.length} titik perbaikan jalan.</p>
+                </div>`;
+
+            L.polyline(pilih.titik, { color: '#ffffff', weight: 8, opacity: 0.9 }).addTo(lapisRute);
+            L.polyline(pilih.titik, { color: '#2563eb', weight: 5, opacity: 0.95, dashArray: cadangan ? '6, 8' : '10, 8' })
+                .addTo(lapisRute).bindPopup(info);
+        }
+        gambarRuteSaya();
+
+        // Rute lama dari tiap node WASPADA/BAHAYA. Dimatikan karena rute dari node bisa melewati jalan yang
+        // sedang diperbaiki. Ubah ke true bila ingin menampilkannya lagi.
+        const TAMPILKAN_RUTE_NODE = false;
+        if (TAMPILKAN_RUTE_NODE) {
+            mapNodes.filter(n => n.status === 'BAHAYA' || n.status === 'WASPADA').forEach(n => { gambarRute(n); });
+        }
 
         // ===== Tombol "?" di kanan bawah peta: panel legenda (arti setiap simbol) =====
         const LEGENDA_HTML = `
@@ -1603,8 +1715,10 @@ svg.leaflet-image-layer.leaflet-interactive path {
             <p class="legenda-grup">Evakuasi</p>
             <div class="legenda-item"><div class="simbol"><img src="/images/icons/posko.webp" alt="" style="border-radius:9999px"></div>
                 <div><b>Posko evakuasi</b><span>Tempat mengungsi. Ketuk ikon untuk melihat kapasitas dan petunjuk arah.</span></div></div>
+            <div class="legenda-item"><div class="simbol"><svg class="legenda-pin" viewBox="0 0 34 44"><path d="M17 1C8.7 1 2 7.6 2 15.8 2 27 17 43 17 43s15-16 15-27.2C32 7.6 25.3 1 17 1z" fill="#db2777" stroke="#fff" stroke-width="2.5"/><circle cx="17" cy="15.5" r="5.5" fill="#fff"/></svg></div>
+                <div><b>Posisi Anda</b><span>Lokasi Anda saat ini, titik awal rute evakuasi.</span></div></div>
             <div class="legenda-item"><div class="simbol"><span class="garis"></span></div>
-                <div><b>Rute evakuasi</b><span>Jalur jalan kaki terpendek dari node Waspada/Bahaya ke posko. Ketuk garis untuk jarak & waktu tempuh.</span></div></div>
+                <div><b>Rute evakuasi</b><span>Jalur jalan kaki dari posisi Anda ke posko, menghindari jalan yang sedang diperbaiki. Ketuk garis untuk jarak & waktu tempuh.</span></div></div>
 
             <p class="legenda-grup">Laporan hambatan jalan</p>
             <div class="legenda-item"><div class="simbol"><img src="/images/icons/hazard-ditutup.svg" alt=""></div>
@@ -1764,6 +1878,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
         // (posko yang jauh tetap tampil, tapi tidak ikut dibingkai supaya node tidak terlihat kecil).
         const pts = mapNodes.map(n => [parseFloat(n.lat), parseFloat(n.lng)]);
         if (STASIUN) pts.push([STASIUN.lat, STASIUN.lng]);
+        pts.push(POSISI_SAYA);
         const acuan = STASIUN ? L.latLng(STASIUN.lat, STASIUN.lng) : null;
         POSKO.forEach(p => { if (!acuan || acuan.distanceTo([p.lat, p.lng]) <= 2000) pts.push([p.lat, p.lng]); });
         // Dibingkai ulang setelah halaman selesai dimuat: saat skrip jalan, ukuran kotak peta
