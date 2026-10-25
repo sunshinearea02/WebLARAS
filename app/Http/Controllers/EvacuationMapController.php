@@ -7,14 +7,50 @@ use App\Models\SensorLog;
 use App\Models\SensorNode;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
+use App\Models\Posko;
 
 class EvacuationMapController extends Controller
 {
     /** Posko evakuasi desa yang dipantau (config/laras.php). */
-    public function getDaftarPosko(): array
-    {
-        return config('laras.posko', []);
-    }
+  
+public function getDaftarPosko(): array
+{
+    $poskoDatabase = Posko::where('aktif', true)
+        ->orderBy('nama')
+        ->get()
+        ->map(function ($p) {
+            return [
+                'id' => $p->id,
+                'nama' => $p->nama,
+                'lat' => (float) $p->latitude,
+                'lng' => (float) $p->longitude,
+                'lokasi' => $p->alamat ?? '-',
+                'jenis' => $p->jenis,
+                'keterangan' => $p->keterangan,
+            ];
+        })
+        ->all();
+
+    // Pertahankan posko bawaan dari konfigurasi jika masih diperlukan.
+    $poskoConfig = config('laras.posko', []);
+
+    return collect($poskoConfig)
+        ->keyBy(function ($p) {
+            return ($p['nama'] ?? '') . '|'
+                . ($p['lat'] ?? '') . '|'
+                . ($p['lng'] ?? '');
+        })
+        ->merge(
+            collect($poskoDatabase)->keyBy(function ($p) {
+                return ($p['nama'] ?? '') . '|'
+                    . ($p['lat'] ?? '') . '|'
+                    . ($p['lng'] ?? '');
+            })
+        )
+        ->values()
+        ->all();
+}
+
 
     public function index(Request $request)
     {

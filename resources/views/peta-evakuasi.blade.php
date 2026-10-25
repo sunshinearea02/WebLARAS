@@ -1147,6 +1147,93 @@ svg.leaflet-image-layer.leaflet-interactive path {
             </form>
         </div>
 
+        
+        @if($canManage)
+        <!-- Form Tambah Posko Evakuasi (HANYA ADMIN & KADER) -->
+            <div class="card p-5 mb-6">
+                <h3 class="font-bold text-deep-900 text-base mb-4">
+                    Tambah Posko Evakuasi
+                </h3>
+
+                <form id="formTambahPosko"
+                    action="{{ route('posko.store') }}"
+                    method="POST"
+                    class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    @csrf
+
+                    <div>
+                        <label class="block text-xs font-bold mb-1">
+                            Nama Posko
+                        </label>
+                        <input type="text" name="nama" required
+                            maxlength="150"
+                            placeholder="Contoh: Posko Utama Desa"
+                            class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold mb-1">
+                            Jenis Posko
+                        </label>
+                        <select name="jenis" required
+                                class="w-full px-3 py-2 border rounded-lg text-sm">
+                            <option value="utama">Posko Utama</option>
+                            <option value="evakuasi">Posko Evakuasi</option>
+                            <option value="medis">Posko Medis</option>
+                        </select>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-xs font-bold mb-1">
+                            Alamat
+                        </label>
+                        <input type="text" name="alamat"
+                            maxlength="255"
+                            class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold mb-1">
+                            Latitude
+                        </label>
+                        <input id="poskoLatitude" type="number" step="any"
+                            name="latitude" min="-90" max="90" required
+                            class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold mb-1">
+                            Longitude
+                        </label>
+                        <input id="poskoLongitude" type="number" step="any"
+                            name="longitude" min="-180" max="180" required
+                            class="w-full px-3 py-2 border rounded-lg text-sm">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <p class="text-xs text-slate-500 mb-3">
+                            Klik lokasi pada peta untuk mengisi koordinat.
+                        </p>
+
+                        <label class="block text-xs font-bold mb-1">
+                            Keterangan
+                        </label>
+                        <textarea name="keterangan" rows="2" maxlength="1000"
+                                class="w-full px-3 py-2 border rounded-lg text-sm"></textarea>
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <button type="submit"
+                                class="px-4 py-2.5 rounded-lg bg-teal-600
+                                    hover:bg-teal-700 text-white text-sm font-bold">
+                            Simpan Posko
+                        </button>
+                    </div>
+                </form>
+            </div>
+        @endif
+
+
         <!-- Petunjuk mode pilih di peta -->
         <div id="pickHint" class="fixed top-20 left-1/2 -translate-x-1/2 z-[55] hidden items-center gap-3 bg-deep-900 text-white text-xs font-semibold px-4 py-2.5 rounded-full shadow-lg">
             Klik lokasi node di peta
@@ -1368,6 +1455,29 @@ svg.leaflet-image-layer.leaflet-interactive path {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
             maxZoom: 19,
         }).addTo(map);
+
+        
+const inputLat = document.getElementById('poskoLatitude');
+const inputLng = document.getElementById('poskoLongitude');
+
+if (CAN_MANAGE && inputLat && inputLng) {
+    let markerPilihanPosko = null;
+
+    map.on('click', function (event) {
+        inputLat.value = event.latlng.lat.toFixed(7);
+        inputLng.value = event.latlng.lng.toFixed(7);
+
+        if (markerPilihanPosko) {
+            map.removeLayer(markerPilihanPosko);
+        }
+
+        markerPilihanPosko = L.marker(event.latlng)
+            .addTo(map)
+            .bindPopup('Lokasi posko yang dipilih')
+            .openPopup();
+    });
+}
+
 
         const statusColor = (status) => {
             status = (status || '').toUpperCase();

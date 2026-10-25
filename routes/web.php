@@ -10,7 +10,7 @@ use App\Http\Controllers\SensorNodeController;
 use App\Http\Controllers\VerifikasiController;
 use App\Http\Controllers\AutomationController;
 use App\Http\Controllers\HazardReportController;
-
+use App\Http\Controllers\PoskoController;
 
 // Otomasi n8n: pemeriksaan peringatan berkala (dilindungi header X-LARAS-Token = N8N_TOKEN)
 Route::post('/api/n8n/alert-tick', [AutomationController::class, 'alertTick'])
@@ -54,6 +54,21 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::post('/petugas/{user}/setujui', [AuthController::class, 'approve'])->name('petugas.approve');
     Route::delete('/petugas/{user}/tolak', [AuthController::class, 'reject'])->name('petugas.reject');
 });
+
+
+ // Publik: warga dapat melihat posko
+Route::get('/posko', [PoskoController::class, 'index'])
+    ->name('posko.index');
+
+// Admin dan kader dapat mengelola posko
+Route::middleware(['auth', 'role:admin,kader'])->group(function () {
+    Route::post('/posko', [PoskoController::class, 'store'])
+        ->name('posko.store');
+
+    Route::delete('/posko/{posko}', [PoskoController::class, 'destroy'])
+        ->name('posko.destroy');
+});
+
 
 // --- RUTE PROTEKSI (Hanya Admin / Kader yang boleh EDIT) ---
 Route::middleware(['auth', 'role:admin,kader'])->group(function () {
