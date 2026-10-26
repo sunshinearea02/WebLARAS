@@ -1212,7 +1212,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
                     <div class="md:col-span-2">
                         <p class="text-xs text-slate-500 mb-3">
-                            Klik lokasi pada peta untuk mengisi koordinat.
+                            Klik lokasi pada peta, lalu pilih "Tambah posko evakuasi" untuk mengisi koordinat.
                         </p>
 
                         <label class="block text-xs font-bold mb-1">
@@ -1460,23 +1460,66 @@ svg.leaflet-image-layer.leaflet-interactive path {
 const inputLat = document.getElementById('poskoLatitude');
 const inputLng = document.getElementById('poskoLongitude');
 
-if (CAN_MANAGE && inputLat && inputLng) {
-    let markerPilihanPosko = null;
+// ===== Klik peta -> popup "Tambahkan lokasi di sini" =====
+// Satu titik klik bisa dipakai untuk laporan hambatan jalan (semua orang)
+// atau tambah posko evakuasi (hanya Admin & Kader).
+let pickingRoad = false;     // true saat pengguna memilih titik lewat tombol "Pilih Titik Hambatan di Peta"
+let lokasiDipilih = null;    // koordinat terakhir yang diklik di peta
+let markerLokasi = null;     // penanda sementara di titik yang diklik
 
-    map.on('click', function (event) {
-        inputLat.value = event.latlng.lat.toFixed(7);
-        inputLng.value = event.latlng.lng.toFixed(7);
-
-        if (markerPilihanPosko) {
-            map.removeLayer(markerPilihanPosko);
-        }
-
-        markerPilihanPosko = L.marker(event.latlng)
-            .addTo(map)
-            .bindPopup('Lokasi posko yang dipilih')
-            .openPopup();
-    });
+function popupTambahLokasi(latlng) {
+    const koordinat = `${latlng.lat.toFixed(6)}, ${latlng.lng.toFixed(6)}`;
+    const tombolPosko = CAN_MANAGE ? `
+        <button type="button" onclick="pilihLokasiPosko()" style="display:block;width:100%;font-size:12px;font-weight:700;color:#fff;background:#0d9488;padding:7px 10px;border-radius:8px;margin-top:6px">Tambah posko evakuasi</button>` : '';
+    return `
+        <div style="font-family: Inter, sans-serif; min-width: 200px;">
+            <p style="font-weight:700; font-size:13px; color:#0f172a; margin:0 0 2px;">Tambahkan lokasi di sini</p>
+            <p style="font-size:10px; color:#94a3b8; margin:0 0 8px; font-family:monospace;">${koordinat}</p>
+            <button type="button" onclick="pilihLokasiHambatan()" style="display:block;width:100%;font-size:12px;font-weight:700;color:#fff;background:#f59e0b;padding:7px 10px;border-radius:8px">Laporkan hambatan jalan</button>
+            ${tombolPosko}
+        </div>`;
 }
+
+// Pilihan 1: laporan hambatan jalan -> buka form laporan dengan koordinat terisi
+function pilihLokasiHambatan() {
+    if (!lokasiDipilih) return;
+    document.getElementById('road_lat').value = lokasiDipilih.lat.toFixed(6);
+    document.getElementById('road_lng').value = lokasiDipilih.lng.toFixed(6);
+    if (markerLokasi) { map.removeLayer(markerLokasi); markerLokasi = null; }
+    map.closePopup();
+    openRoadModal();
+}
+
+// Pilihan 2: posko evakuasi (Admin & Kader) -> isi koordinat di form posko lalu gulir ke form
+function pilihLokasiPosko() {
+    if (!CAN_MANAGE || !lokasiDipilih || !inputLat || !inputLng) return;
+    inputLat.value = lokasiDipilih.lat.toFixed(7);
+    inputLng.value = lokasiDipilih.lng.toFixed(7);
+    if (markerLokasi) markerLokasi.setPopupContent('Lokasi posko yang dipilih');
+    map.closePopup();
+    const form = document.getElementById('formTambahPosko');
+    if (form) {
+        form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        form.querySelector('input[name="nama"]')?.focus({ preventScroll: true });
+    }
+}
+window.pilihLokasiHambatan = pilihLokasiHambatan;
+window.pilihLokasiPosko = pilihLokasiPosko;
+
+map.on('click', function (event) {
+    // Jangan ganti popup bila: sedang mode "pilih titik" (node / hambatan), atau yang diklik
+    // adalah garis rute / penanda yang punya popup sendiri.
+    if (picking || pickingRoad) return;
+    const target = event.originalEvent && event.originalEvent.target;
+    if (target && target.closest && target.closest('.leaflet-interactive')) return;
+
+    lokasiDipilih = event.latlng;
+    if (markerLokasi) map.removeLayer(markerLokasi);
+    markerLokasi = L.marker(event.latlng)
+        .addTo(map)
+        .bindPopup(popupTambahLokasi(event.latlng))
+        .openPopup();
+});
 
 
         const statusColor = (status) => {
@@ -1865,40 +1908,42 @@ if (CAN_MANAGE && inputLat && inputLng) {
         map.addControl(new LegendaControl());
 
         // Tombol bulat "+" di sisi kanan peta (untuk semua orang): membuka form laporan hambatan jalan
-        // Tombol tambah lokasi di peta
         const LaporJalanControl = L.Control.extend({
             options: { position: 'topright' },
-
             onAdd: function (map) {
-                const container = L.DomUtil.create(
-                    'div',
-                    'leaflet-control lapor-plus-wrap'
-                );
-
-                const btn = L.DomUtil.create(
-                    'a',
-                    'lapor-plus-btn',
-                    container
-                );
-
+                const container = L.DomUtil.create('div', 'leaflet-control lapor-plus-wrap');
+                const btn = L.DomUtil.create('a', 'lapor-plus-btn', container);
                 btn.innerHTML = '<img src="/images/icons/plus.svg" alt="">';
-                btn.title = 'Tambahkan Lokasi di Sini';
-                btn.setAttribute('aria-label', 'Tambahkan Lokasi di Sini');
+                btn.title = 'Laporkan hambatan / penutupan jalan';
+                btn.setAttribute('aria-label', 'Laporkan hambatan jalan');
                 btn.href = '#';
-
                 L.DomEvent.disableClickPropagation(container);
 
-                L.DomEvent.on(btn, 'click', function (e) {
-                    L.DomEvent.stopPropagation(e);
-                    L.DomEvent.preventDefault(e);
+              L.DomEvent.on(btn, 'click', function (e) {
+                L.DomEvent.stopPropagation(e);
+                L.DomEvent.preventDefault(e);
 
-                    openAddLocationModal();
+                pickingRoad = false;
+
+                alert('Klik titik lokasi pada peta untuk memilih tindakan.');
+
+                map.once('click', function (event) {
+                    lokasiDipilih = event.latlng;
+
+                    if (markerLokasi) {
+                        map.removeLayer(markerLokasi);
+                    }
+
+                    markerLokasi = L.marker(event.latlng)
+                        .addTo(map)
+                        .bindPopup(popupTambahLokasi(event.latlng))
+                        .openPopup();
                 });
-
+            });
+                
                 return container;
             }
         });
-
         map.addControl(new LaporJalanControl());
 
 
@@ -2119,69 +2164,6 @@ if (CAN_MANAGE && inputLat && inputLng) {
             .catch(err => console.error(err));
         }
     </script>
-    <!-- Modal pilihan tambah lokasi -->
-        <div id="addLocationModal"
-            class="fixed inset-0 z-[80] hidden items-center justify-center
-                    bg-deep-900/40 px-4">
-
-            <div class="w-full max-w-md rounded-xl border border-air-300
-                        bg-white p-6 shadow-float space-y-4">
-
-                <div class="flex items-center justify-between border-b
-                            border-air-200 pb-3">
-                    <h3 class="font-bold text-deep-900 text-[17px]">
-                        Tambahkan Lokasi di Sini
-                    </h3>
-
-                    <button type="button"
-                            onclick="closeAddLocationModal()"
-                            class="text-slate-500 hover:text-slate-800
-                                font-bold text-xl">
-                        &times;
-                    </button>
-                </div>
-
-                <p class="text-sm text-slate-600">
-                    Pilih tindakan yang ingin dilakukan pada peta.
-                </p>
-
-                <!-- Bisa dipilih oleh semua pengguna -->
-                <button type="button"
-                        onclick="chooseAddLocation('road')"
-                        class="w-full rounded-lg bg-amber-500 px-4 py-3
-                            text-left font-bold text-white
-                            hover:bg-amber-600">
-                    Laporkan Hambatan Jalan
-                    <span class="mt-1 block text-xs font-normal">
-                        Melaporkan jalan rusak, longsor, atau penutupan jalan.
-                    </span>
-                </button>
-
-                <!-- Hanya admin dan kader -->
-                @can('kelola-data')
-                <button type="button"
-                        onclick="chooseAddLocation('posko')"
-                        class="w-full rounded-lg bg-teal-600 px-4 py-3
-                            text-left font-bold text-white
-                            hover:bg-teal-700">
-                    Tambah Posko
-                    <span class="mt-1 block text-xs font-normal">
-                        Menambahkan titik posko evakuasi ke peta.
-                    </span>
-                </button>
-                @endcan
-
-                <div class="flex justify-end pt-1">
-                    <button type="button"
-                            onclick="closeAddLocationModal()"
-                            class="rounded-lg px-4 py-2 text-sm
-                                font-bold text-slate-600 hover:bg-slate-100">
-                        Batal
-                    </button>
-                </div>
-            </div>
-        </div>
-
         <div id="roadModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-deep-900/40 px-4">
             <form id="roadForm" class="w-full max-w-md bg-white rounded-xl border border-air-300 shadow-float p-6 space-y-4">
                 @csrf
@@ -2233,48 +2215,46 @@ if (CAN_MANAGE && inputLat && inputLng) {
         </div>
         <script>
             let roadModal = document.getElementById('roadModal');
-            const addLocationModal = document.getElementById('addLocationModal');
-
-            function openAddLocationModal() {
-                addLocationModal.classList.remove('hidden');
-                addLocationModal.classList.add('flex');
+            function openRoadModal() { roadModal.classList.remove('hidden'); roadModal.classList.add('flex'); }
+            function closeRoadModal() {
+                cancelRoadMapPicking();
+                roadModal.classList.add('hidden');
+                roadModal.classList.remove('flex');
             }
+             let roadPickHandler = null;
 
-            function closeAddLocationModal() {
-                addLocationModal.classList.add('hidden');
-                addLocationModal.classList.remove('flex');
-            }
-
-            function chooseAddLocation(type) {
-                closeAddLocationModal();
-
-                if (type === 'road') {
-                    openRoadModal();
-                    return;
+            function cancelRoadMapPicking() {
+                if (roadPickHandler) {
+                    map.off('click', roadPickHandler);
+                    roadPickHandler = null;
                 }
 
-                if (type === 'posko') {
-                    if (!CAN_MANAGE) {
-                        alert('Hanya admin dan kader yang dapat menambahkan posko.');
-                        return;
-                    }
-
-                    // Hubungkan ke form tambah posko yang sudah ada.
-                    // Nama fungsi/modal posko belum ditemukan di file ini.
-                    alert('Form tambah posko perlu dihubungkan ke fitur posko yang sudah ada.');
-                }
+                pickingRoad = false;
             }
-            
+
             function pickRoadOnMap() {
+                cancelRoadMapPicking();
                 closeRoadModal();
+
+                pickingRoad = true;
                 alert('Klik lokasi titik hambatan di peta.');
-                map.once('click', e => {
-                    document.getElementById('road_lat').value = e.latlng.lat.toFixed(6);
-                    document.getElementById('road_lng').value = e.latlng.lng.toFixed(6);
+
+                roadPickHandler = function (e) {
+                    roadPickHandler = null;
+                    pickingRoad = false;
+
+                    document.getElementById('road_lat').value =
+                        e.latlng.lat.toFixed(6);
+
+                    document.getElementById('road_lng').value =
+                        e.latlng.lng.toFixed(6);
+
                     openRoadModal();
-                });
+                };
+
+                map.once('click', roadPickHandler);
             }
-            document.getElementById('roadForm')?.addEventListener('submit', function(e) {
+                        document.getElementById('roadForm')?.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const form = this, btn = document.getElementById('road_submit');
                 const payload = {
