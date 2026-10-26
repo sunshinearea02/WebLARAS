@@ -71,9 +71,10 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
-            // Supabase pooler port 6543 (mode transaksi) tidak mendukung prepared statement server:
-            // tanpa ini query kadang gagal "prepared statement ... does not exist" / macet.
-            'options' => extension_loaded('pdo_pgsql') ? [PDO::ATTR_EMULATE_PREPARES => true] : [],
+            // Supabase pooler port 6543 (mode transaksi) tidak mendukung prepared statement bernama:
+            // tanpa ini query kadang gagal "prepared statement ... does not exist".
+            // Jangan pakai ATTR_EMULATE_PREPARES: boolean jadi 1/0 -> error "boolean = integer".
+            'options' => defined('PDO::PGSQL_ATTR_DISABLE_PREPARES') ? [PDO::PGSQL_ATTR_DISABLE_PREPARES => true] : [],
         ],
 
     ],
