@@ -58,6 +58,40 @@ class DashboardController extends Controller
         return response()->json($current);
     }
 
+    /** Halaman tabel data sensor yang bertambah otomatis (tanpa refresh), mis. untuk rekaman video. */
+    public function realtime()
+    {
+        $nodes = \App\Models\SensorNode::query()->get(['id', 'node_code', 'node_name', 'desa'])
+            ->mapWithKeys(fn ($n) => [$n->id => ['kode' => $n->node_code, 'nama' => $n->node_name, 'desa' => $n->desa]]);
+
+        return view('data-realtime', ['nodes' => $nodes]);
+    }
+
+    /** N baris sensor_data terbaru (default 40) untuk halaman realtime; status ikut terbaru (diisi AI). */
+    public function getTerbaru(\Illuminate\Http\Request $request)
+    {
+        $limit = max(5, min(200, (int) $request->query('limit', 40)));
+
+        $rows = SensorLog::without('prediction')->orderByDesc('id')->limit($limit)->get()
+            ->map(fn ($r) => [
+                'id'        => $r->id,
+                'node_id'   => $r->node_id,
+                'timestamp' => $r->timestamp,
+                'log'       => $r->sensor_log_id,
+                'dangkal'   => $r->moisture_percent,
+                'dalam'     => $r->moisture_percent_deep,
+                'hujan'     => $r->rainfall_mm,
+                'ax' => $r->ax, 'ay' => $r->ay, 'az' => $r->az,
+                'gx' => $r->gx, 'gy' => $r->gy, 'gz' => $r->gz,
+                'pitch'     => $r->pitch,
+                'roll'      => $r->roll,
+                'status'    => $r->getAttributes()['status'] ?? null,
+                'forecast'  => $r->getAttributes()['forecast_status'] ?? null,
+            ]);
+
+        return response()->json($rows)->header('Cache-Control', 'no-store');
+    }
+
     public function getSince(\Illuminate\Http\Request $request)
     {
         $lastId = (int) $request->query('last_id', 0);

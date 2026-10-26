@@ -127,6 +127,7 @@
         <a href="/#live" data-nav="live" class="{{ $item }} {{ $active === 'live' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">monitoring</span>Live Monitoring</a>
         <a href="{{ route('peta-evakuasi.index') }}" class="{{ $item }} {{ $active === 'peta' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">map</span>Peta Evakuasi</a>
         <a href="{{ route('lanskap.index') }}" class="{{ $item }} {{ $active === 'lanskap' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">landscape</span>Data Lanskap</a>
+        <a href="{{ route('data-realtime') }}" class="{{ $item }} {{ $active === 'realtime' ? $on : $idle }}"><span class="material-symbols-outlined text-[20px]">sensors</span>Data Sensor Realtime</a>
 
         <p class="px-3 pt-4 pb-1 text-[10px] font-mono font-semibold uppercase tracking-widest text-deep-400">Tentang LARAS</p>
         <a href="/#edukasi" class="{{ $item }} {{ $idle }}"><span class="material-symbols-outlined text-[20px]">menu_book</span>Edukasi Longsor</a>

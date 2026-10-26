@@ -21,6 +21,8 @@ Route::post('/api/n8n/alert-tick', [AutomationController::class, 'alertTick'])
 Route::get('/', [DashboardController::class, 'index']);
 Route::get('/api/sensor-now', [DashboardController::class, 'getLatestData']);
 Route::get('/api/sensor-since', [DashboardController::class, 'getSince']);
+Route::get('/api/sensor-terbaru', [DashboardController::class, 'getTerbaru'])->middleware('throttle:120,1');
+Route::get('/data-realtime', [DashboardController::class, 'realtime'])->name('data-realtime');
 Route::get('/api/status-history', [DashboardController::class, 'getStatusHistory']);
 Route::get('/api/forecast-history', [DashboardController::class, 'getForecastHistory']);
 Route::get('/api/weather-bmkg', [DashboardController::class, 'getWeather']);
