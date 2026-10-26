@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Posko;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Gate;
 
 class PoskoController extends Controller
 {
@@ -19,6 +20,7 @@ class PoskoController extends Controller
 
     public function store(Request $request)
     {
+        Gate::authorize('kelola-data');
         $validated = $request->validate([
             'nama' => 'required|string|max:150',
             'alamat' => 'nullable|string|max:255',
@@ -47,6 +49,7 @@ class PoskoController extends Controller
 
     public function destroy(Posko $posko)
     {
+        Gate::authorize('kelola-data');
         $posko->update(['aktif' => false]);
 
         return response()->json([

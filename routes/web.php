@@ -29,6 +29,10 @@ Route::post('/api/chatbot', [ChatbotController::class, 'chat'])->middleware('thr
 Route::get('/lanskap', [LandscapeController::class, 'index'])->name('lanskap.index');
 Route::get('/peta-evakuasi', [EvacuationMapController::class, 'index'])->name('peta-evakuasi.index');
 Route::get('/peta-evakuasi/checkins', [EvacuationMapController::class, 'getCheckins'])->name('peta-evakuasi.checkins-list');
+// Daftar posko: bisa dilihat warga maupun petugas
+Route::get('/posko', [PoskoController::class, 'index'])
+    ->name('posko.index');
+
 
 // Laporan hambatan jalan: warga boleh melihat & melapor tanpa login (dibatasi 5 laporan / 10 menit)
 Route::get('/peta-evakuasi/laporan-jalan', [HazardReportController::class, 'index'])->name('laporan-jalan.index');
@@ -56,18 +60,6 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
 });
 
 
- // Publik: warga dapat melihat posko
-Route::get('/posko', [PoskoController::class, 'index'])
-    ->name('posko.index');
-
-// Admin dan kader dapat mengelola posko
-Route::middleware(['auth', 'role:admin,kader'])->group(function () {
-    Route::post('/posko', [PoskoController::class, 'store'])
-        ->name('posko.store');
-
-    Route::delete('/posko/{posko}', [PoskoController::class, 'destroy'])
-        ->name('posko.destroy');
-});
 
 
 // --- RUTE PROTEKSI (Hanya Admin / Kader yang boleh EDIT) ---
@@ -95,4 +87,12 @@ Route::middleware(['auth', 'role:admin,kader'])->group(function () {
     Route::post('/verifikasi-peringatan/{verification}/tolak', [VerifikasiController::class, 'reject'])->name('verifikasi.reject');
     Route::post('/verifikasi-peringatan/warga', [VerifikasiController::class, 'storeWarga'])->name('verifikasi.warga.store');
     Route::delete('/verifikasi-peringatan/warga/{contact}', [VerifikasiController::class, 'destroyWarga'])->name('verifikasi.warga.destroy');
-});
+
+    // Kelola posko evakuasi
+    Route::post('/posko', [PoskoController::class, 'store'])
+        ->name('posko.store');
+
+    Route::delete('/posko/{posko}', [PoskoController::class, 'destroy'])
+        ->name('posko.destroy');
+
+    });
