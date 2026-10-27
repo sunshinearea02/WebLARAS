@@ -1424,7 +1424,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                 <div class="mt-3 grid grid-cols-2 gap-3">
                     @php
                         $kontak = [['117', 'BNPB', 'Koordinasi bencana nasional', 'tel:117'], ['115', 'Basarnas', 'Pencarian & evakuasi (SAR)', 'tel:115'],
-                                   ['(031) 99860466', 'BPBD setempat', 'Wilayah pilot LARAS', 'tel:03199860466'], ['menyusul', 'Kader / posko desa', 'Nomor kader EWS-L', null]];
+                                   ['(031) 99860466', 'BPBD setempat', 'Wilayah pilot LARAS', 'tel:03199860466'], ['081245789740', 'Kader / posko desa', 'Nomor kader EWS-L', null]];
                     @endphp
                     @foreach($kontak as [$num, $who, $desc, $href])
                     <a @if($href) href="{{ $href }}" @endif class="card p-4 {{ $href ? 'card-accent' : 'border-dashed' }}">
