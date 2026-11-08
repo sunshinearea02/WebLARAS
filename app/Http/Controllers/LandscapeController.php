@@ -77,6 +77,10 @@ class LandscapeController extends Controller
             default => null,
         };
 
+        // Pipeline AI di Raspberry Pi mencocokkan survei dengan node lewat sensor_log_id
+        // (kode node, mis. NODE-01), jadi kolom ini selalu diisi dari node yang dipilih.
+        $data['sensor_log_id'] = SensorNode::find($data['node_id'])->node_code;
+
         return $data;
     }
 }
