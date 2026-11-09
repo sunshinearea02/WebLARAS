@@ -21,7 +21,7 @@
             <h2 class="text-3xl font-black text-slate-900 mt-1">Verifikasi Peringatan</h2>
             <p class="text-slate-500 mt-1.5 text-sm max-w-2xl">
                 Peringatan dari AI dikirim ke warga desa terdampak setelah <b>satu kader</b> menyetujui.
-                BAHAYA tanpa keputusan <b>{{ $autoMinutes }} menit</b> otomatis terkirim; WASPADA kedaluwarsa setelah {{ $waspadaMinutes }} menit.
+                Tanpa keputusan, peringatan otomatis terkirim ke warga: BAHAYA setelah <b>{{ $autoMinutes }} menit</b>, WASPADA setelah <b>{{ $waspadaMinutes }} menit</b>.
             </p>
             <p class="text-xs text-slate-400 mt-2 font-mono">{{ $kaderCount }} nomor kader menerima pemberitahuan</p>
         </div>
@@ -62,7 +62,7 @@
                             <p class="text-sm text-slate-500">Terdeteksi {{ $v->created_at->timezone('Asia/Jakarta')->format('d/m/Y H:i') }} WIB &middot; {{ $wargaN }} nomor warga akan menerima peringatan</p>
                         </div>
                         <p class="text-sm font-semibold {{ $bahaya ? 'text-rose-600' : 'text-amber-700' }}">
-                            {{ $bahaya ? 'Otomatis terkirim' : 'Kedaluwarsa' }} {{ $deadline->diffForHumans() }}
+                            Otomatis terkirim {{ $deadline->diffForHumans() }}
                         </p>
                     </div>
 
