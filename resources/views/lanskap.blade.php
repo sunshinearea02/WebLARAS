@@ -25,7 +25,12 @@
         <div>
             <span class="text-xs font-bold uppercase tracking-widest text-blue-600 font-mono">Karakterisasi Lokasi</span>
             <h2 class="text-3xl font-black text-slate-900 mt-1">Data Lanskap &amp; Kondisi Lapangan</h2>
-            <p class="text-slate-500 mt-1.5 text-sm max-w-2xl">Isi data kualitatif kondisi lereng di titik pemasangan sensor. Data ini melengkapi telemetri sensor untuk konteks penilaian risiko.</p>
+            <p class="text-slate-500 mt-1.5 text-sm max-w-2xl">Isi data kualitatif kondisi lereng dalam radius 50 m dari setiap node sensor. Data ini melengkapi telemetri sensor untuk konteks penilaian risiko.</p>
+            <a href="{{ route('lanskap.panduan') }}"
+               class="mt-4 inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-air-100 border border-air-300 text-teal-700 text-xs font-bold hover:bg-air-200 transition">
+                <span class="material-symbols-outlined text-[18px]">menu_book</span>
+                Panduan Pengisian untuk Kader
+            </a>
         </div>
 
         <!-- NOTIFIKASI SUCCESS / ERROR -->
@@ -119,7 +124,10 @@
 
                         @foreach($selectFields as $field => $label)
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">{{ $label }}</label>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-bold uppercase text-slate-700">{{ $label }}</label>
+                                <a href="{{ route('lanskap.panduan') }}#{{ $field }}" target="_blank" class="text-[11px] font-semibold text-teal-600 hover:underline">Cara menilai?</a>
+                            </div>
                             <select name="{{ $field }}"
                                     class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                                 <option value="">— Pilih {{ $label }} —</option>
@@ -141,7 +149,10 @@
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
 
                         <div>
-                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Pemotongan Lereng Buatan Manusia</label>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-bold uppercase text-slate-700">Pemotongan Lereng Buatan Manusia</label>
+                                <a href="{{ route('lanskap.panduan') }}#artificial_slope_cutting" target="_blank" class="text-[11px] font-semibold text-teal-600 hover:underline">Cara menilai?</a>
+                            </div>
                             <div class="flex gap-3 mt-1.5">
                                 <label class="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 text-sm cursor-pointer flex-1 justify-center hover:bg-slate-50">
                                     <input type="radio" name="artificial_slope_cutting" value="ada" @checked($slopeCut === 'ada') class="accent-blue-600">
@@ -155,7 +166,10 @@
                         </div>
 
                         <div class="md:col-span-2">
-                            <label class="block text-xs font-bold uppercase text-slate-700 mb-1.5">Terdapat Perkuatan Geosintetik</label>
+                            <div class="flex items-center justify-between mb-1.5">
+                                <label class="block text-xs font-bold uppercase text-slate-700">Terdapat Perkuatan Geosintetik</label>
+                                <a href="{{ route('lanskap.panduan') }}#geosynthetic_reinforcement" target="_blank" class="text-[11px] font-semibold text-teal-600 hover:underline">Cara menilai?</a>
+                            </div>
                             <select name="geosynthetic_reinforcement"
                                     class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
                                 <option value="">— Pilih Jenis Perkuatan —</option>
