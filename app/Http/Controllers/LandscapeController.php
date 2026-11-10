@@ -34,7 +34,6 @@ class LandscapeController extends Controller
         return view('lanskap-panduan', [
             'fields' => LandscapeGuide::fields(),
             'weights' => LandscapeGuide::weights(),
-            'tools' => LandscapeGuide::tools(),
             'notesChecklist' => LandscapeGuide::notesChecklist(),
             'sources' => LandscapeGuide::sources(),
         ]);

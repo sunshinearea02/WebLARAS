@@ -25,26 +25,12 @@ class LandscapeGuide
         ];
     }
 
-    /** Alat yang dibawa saat survei. */
-    public static function tools(): array
-    {
-        return [
-            'HP berkamera dengan aplikasi klinometer atau waterpas (gratis di Play Store/App Store)',
-            'Meteran gulung 5 m dan penggaris 30 cm',
-            'Papan atau tongkat lurus 1–2 m, dan tali rafia',
-            'Botol air kecil untuk uji tanah',
-            'Patok kayu atau cat semprot untuk menandai ujung retakan',
-            'Buku catatan dan pulpen',
-        ];
-    }
-
     /** Panduan per kolom form. */
     public static function fields(): array
     {
         return [
             'dominant_vegetation' => [
                 'label' => 'Jenis Vegetasi Dominan',
-                'icon' => 'forest',
                 'what' => 'Penutup lahan yang paling luas (lebih dari separuh area) dalam radius 50 m dari node. Akar pohon yang dalam dan menyebar mengikat tanah, sedangkan rumput dan semak berakar serabut dangkal sehingga kurang mampu menahan lereng.',
                 'steps' => [
                     'Berdiri di samping node, lalu foto ke empat arah: atas lereng, bawah lereng, kiri, dan kanan.',
@@ -75,7 +61,6 @@ class LandscapeGuide
 
             'slope_classification' => [
                 'label' => 'Klasifikasi Kemiringan Lereng',
-                'icon' => 'landscape',
                 'what' => 'Seberapa curam lereng tempat node dipasang, dalam persen. Persen berarti berapa cm tanah naik untuk setiap 1 m jarak mendatar. Makin curam, makin besar gaya yang mendorong tanah turun.',
                 'steps' => [
                     'Cara HP: letakkan papan atau tongkat lurus 1–2 m searah turunan lereng di samping node (hindari gundukan atau lubang).',
@@ -106,7 +91,6 @@ class LandscapeGuide
 
             'drainage_condition' => [
                 'label' => 'Kondisi Drainase',
-                'icon' => 'water',
                 'what' => 'Ke mana air hujan dan air buangan mengalir di sekitar dan di atas node. Air yang masuk dan menumpuk di dalam lereng menambah berat tanah dan membuat bidang gelincir licin, penyebab utama longsor saat hujan.',
                 'steps' => [
                     'Telusuri selokan, parit, saluran teras, talang, dan pipa buangan rumah di sekitar node, terutama di bagian atas lereng.',
@@ -135,7 +119,6 @@ class LandscapeGuide
 
             'soil_cracking' => [
                 'label' => 'Keretakan Tanah',
-                'icon' => 'texture',
                 'what' => 'Lebar retakan tanah terbesar dalam radius 50 m dari node, terutama retakan yang memanjang sejajar arah tebing. Retakan seperti ini sering menjadi tanda awal tanah mulai bergerak, dan juga menjadi jalan masuk air hujan ke dalam lereng.',
                 'steps' => [
                     'Telusuri area sekitar node, terutama bagian atas lereng dan tepi tebing.',
@@ -154,19 +137,17 @@ class LandscapeGuide
                     ['text' => 'Gejala umum tanah longsor: munculnya retakan di lereng yang sejajar dengan arah tebing, biasanya setelah hujan. Retakan tanah sebaiknya segera ditutup dan dipadatkan agar air tidak masuk.', 'source' => 'esdm'],
                     ['text' => 'Musim kering yang panjang membuat tanah permukaan retak dan merekah. Saat hujan pertama yang deras, air masuk lewat retakan, terkumpul di dasar lereng, dan dapat memicu longsor.', 'source' => 'esdm'],
                     ['text' => 'Retakan baru, tanah yang menggembung, atau perubahan bentuk di tanah, jalan, dan permukaan lain adalah tanda potensi longsor. Retakan baru pada dinding atau pondasi bangunan juga termasuk.', 'source' => 'usgs_signs'],
-                    ['text' => 'Batas lebar 2 cm dan 5 cm adalah kategori rancangan tim LARAS untuk skor lereng, bukan standar resmi.', 'source' => 'laras'],
                 ],
                 'tips' => [
                     'Retak kering musiman berpola seperti sarang lebah, dangkal, dan muncul di tanah liat saat kemarau. Kolom ini diisi berdasarkan retakan yang memanjang searah tebing. Retak kering tetap ditulis di Catatan dan sebaiknya ditutup sebelum musim hujan.',
                     'Retakan baru, atau retakan yang memanjang atau melebar dibanding survei sebelumnya, segera laporkan ke BPBD tanpa menunggu survei berikutnya.',
                     'Catat juga retakan pada rumah, jalan, atau dinding penahan, serta pintu dan jendela yang tiba-tiba sulit ditutup.',
                 ],
-                'sources' => ['esdm', 'usgs_signs', 'laras'],
+                'sources' => ['esdm', 'usgs_signs'],
             ],
 
             'soil_type' => [
                 'label' => 'Jenis Tanah',
-                'icon' => 'grain',
                 'what' => 'Jenis tanah di kedalaman sensor (25–75 cm). Tanah liat menahan air lama dan menjadi lembek serta licin saat jenuh. Tanah gembur dan mudah lolos air yang menumpang di atas lapisan kedap juga rawan, karena air berhenti di batas kedua lapisan dan menjadi bidang gelincir.',
                 'steps' => [
                     'Ambil segenggam tanah (±25 gram, seukuran bola pingpong) dari lubang pemasangan probe di kedalaman 25–75 cm, bukan dari permukaan.',
@@ -199,7 +180,6 @@ class LandscapeGuide
 
             'landslide_history' => [
                 'label' => 'Riwayat Kejadian Longsor',
-                'icon' => 'history',
                 'what' => 'Apakah lereng yang sama (di area node, atau lereng di atas dan bawahnya yang bersambung) pernah longsor, kapan pun dan sebesar apa pun. Bekas longsoran lama mudah bergerak lagi.',
                 'steps' => [
                     'Tanyakan ke warga yang paling lama tinggal di sekitar lokasi, pemilik lahan, dan perangkat desa.',
@@ -225,7 +205,6 @@ class LandscapeGuide
 
             'artificial_slope_cutting' => [
                 'label' => 'Pemotongan Lereng Buatan Manusia',
-                'icon' => 'construction',
                 'what' => 'Apakah ada tebing hasil galian manusia di sekitar node. Memotong kaki lereng menghilangkan penahan alami tanah di atasnya, apalagi bila dipotong tegak.',
                 'steps' => [
                     'Telusuri lereng di atas dan bawah node dalam radius 50 m.',
@@ -249,7 +228,6 @@ class LandscapeGuide
 
             'geosynthetic_reinforcement' => [
                 'label' => 'Perkuatan Geosintetik',
-                'icon' => 'grid_on',
                 'what' => 'Bahan perkuatan buatan (lembaran atau jaring sintetis, atau batang baja) yang dipasang di dalam lereng untuk menambah kekuatan tanah. Biasanya berasal dari proyek pemerintah atau kontraktor, misalnya di tebing jalan atau lereng yang pernah longsor.',
                 'steps' => [
                     'Amati permukaan dan tepi lereng, terutama tebing jalan, timbunan jalan, atau lereng bekas longsor yang sudah diperbaiki.',
@@ -354,12 +332,6 @@ class LandscapeGuide
                 'title' => 'Federal Highway Administration (2015). Soil Nail Walls Reference Manual, FHWA-NHI-14-007 (GEC No. 7)',
                 'note' => 'Komponen dinding soil nailing: batang baja, lapisan muka beton semprot, dan kepala angkur.',
                 'url' => 'https://highways.dot.gov/sites/fhwa.dot.gov/files/FHWA-NHI-14-007.pdf',
-            ],
-            'laras' => [
-                'short' => 'Kategori tim LARAS',
-                'title' => 'Tim LARAS. Kategori lebar retakan (kurang dari 2 cm, 2–5 cm, lebih dari 5 cm) dan bobot skor lereng',
-                'note' => 'Dirancang tim LARAS untuk skor lereng, bukan standar resmi. Akan dikalibrasi bersama ahli geoteknik.',
-                'url' => null,
             ],
         ];
     }
