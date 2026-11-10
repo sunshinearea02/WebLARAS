@@ -21,11 +21,11 @@ class DashboardController extends Controller
             'rainfall'  => 0,
             'temp'      => null,
             'humidity'  => null,
-            'location'  => 'Surabaya, Jawa Timur',
+            'location'  => self::LOKASI_DEFAULT,
         ];
 
         try {
-            $weatherInfo = $this->fetchBmkgSurabaya();
+            $weatherInfo = $this->fetchBmkgPacet();
         } catch (\Exception $e) {
             $weatherInfo['condition'] = 'Gagal memuat cuaca';
         }
@@ -145,69 +145,74 @@ class DashboardController extends Controller
     public function getWeather()
     {
         try {
-            return response()->json($this->fetchBmkgSurabaya());
+            return response()->json($this->fetchBmkgPacet());
         } catch (\Exception $e) {
             return response()->json([
                 'condition' => 'Gagal memuat cuaca',
                 'rainfall'  => 0,
                 'temp'      => null,
                 'humidity'  => null,
-                'location'  => 'Surabaya, Jawa Timur',
+                'location'  => self::LOKASI_DEFAULT,
             ]);
         }
     }
 
-    private function fetchBmkgSurabaya(): array
+    // Kode wilayah BMKG (adm4) lokasi node LARAS: Desa Kemiri, Kec. Pacet, Kab. Mojokerto.
+    // Cadangan: Desa Pacet (kecamatan yang sama) bila data Kemiri kosong.
+    private const BMKG_ADM4          = '35.16.03.2001';
+    private const BMKG_ADM4_CADANGAN = '35.16.03.2005';
+    private const LOKASI_DEFAULT     = 'Kemiri, Pacet, Mojokerto';
+
+    private function fetchBmkgPacet(): array
     {
-        $default = [
+        foreach ([self::BMKG_ADM4, self::BMKG_ADM4_CADANGAN] as $adm4) {
+            $res = Http::timeout(8)->get('https://api.bmkg.go.id/publik/prakiraan-cuaca', ['adm4' => $adm4]);
+            if (!$res->successful()) continue;
+
+            $wilayah = $res->json('data.0');
+            $cuaca   = $this->slotTerdekat($wilayah['cuaca'] ?? []);
+            if (!$cuaca) continue;
+
+            $lokasi = $wilayah['lokasi'] ?? [];
+            return [
+                'condition' => $cuaca['weather_desc'] ?? 'N/A',
+                'rainfall'  => $cuaca['tp']  ?? 0,     // mm per slot prakiraan 3 jam
+                'temp'      => $cuaca['t']   ?? null,
+                'humidity'  => $cuaca['hu']  ?? null,
+                'location'  => implode(', ', array_filter([
+                    $lokasi['desa'] ?? null, $lokasi['kecamatan'] ?? null, $lokasi['kotkab'] ?? null,
+                ])) ?: self::LOKASI_DEFAULT,
+                'time'      => $cuaca['local_datetime'] ?? null,
+            ];
+        }
+
+        return [
             'condition' => 'Tidak tersedia',
             'rainfall'  => 0,
             'temp'      => null,
             'humidity'  => null,
-            'location'  => 'Surabaya, Jawa Timur',
+            'location'  => self::LOKASI_DEFAULT,
         ];
+    }
 
-        $res = Http::timeout(8)->get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=35.78.04.1001');
-        if ($res->successful()) {
-            $data = $res->json('data', []);
-            if (!empty($data)) {
-                $wilayah = $data[0];
-                $cuaca   = $wilayah['cuaca'][0][0] ?? null;
-                if ($cuaca) {
-                    return [
-                        'condition' => $cuaca['weather_desc'] ?? 'N/A',
-                        'rainfall'  => $cuaca['tp']  ?? 0,
-                        'temp'      => $cuaca['t']   ?? null,
-                        'humidity'  => $cuaca['hu']  ?? null,
-                        'location'  => ($wilayah['lokasi']['kecamatan'] ?? '')
-                                     . ', ' . ($wilayah['lokasi']['kotkab'] ?? 'Surabaya'),
-                    ];
-                }
-            }
+    /** Slot prakiraan 3 jam yang paling dekat dengan jam sekarang (WIB), bukan sekadar slot pertama. */
+    private function slotTerdekat(array $hari): ?array
+    {
+        $slots = [];
+        foreach ($hari as $slotHarian) {
+            if (is_array($slotHarian)) array_push($slots, ...$slotHarian);
         }
 
-        $res2 = Http::timeout(8)->get('https://api.bmkg.go.id/publik/prakiraan-cuaca?adm1=35');
-        if ($res2->successful()) {
-            foreach ($res2->json('data', []) as $wilayah) {
-                $kotkab = $wilayah['lokasi']['kotkab'] ?? '';
-                if (stripos($kotkab, 'Surabaya') !== false) {
-                    $cuaca = $wilayah['cuaca'][0][0] ?? null;
-                    if ($cuaca) {
-                        return [
-                            'condition' => $cuaca['weather_desc'] ?? 'N/A',
-                            'rainfall'  => $cuaca['tp']  ?? 0,
-                            'temp'      => $cuaca['t']   ?? null,
-                            'humidity'  => $cuaca['hu']  ?? null,
-                            'location'  => ($wilayah['lokasi']['kecamatan'] ?? '')
-                                         . ', ' . $kotkab,
-                        ];
-                    }
-                    break;
-                }
+        $now     = now('Asia/Jakarta')->timestamp;
+        $pilihan = null;
+        $selisih = PHP_INT_MAX;
+        foreach ($slots as $slot) {
+            $t = strtotime(($slot['local_datetime'] ?? '') . ' Asia/Jakarta');
+            if ($t !== false && abs($t - $now) < $selisih) {
+                [$pilihan, $selisih] = [$slot, abs($t - $now)];
             }
         }
-
-        return $default;
+        return $pilihan ?? ($slots[0] ?? null);
     }
 
     protected function mapFields($model): void

@@ -2122,7 +2122,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <img src="{{ asset('images/logo bmkg.png') }}" alt="BMKG Logo" class="w-7 h-9 object-contain shrink-0">
                             <div>
                                 <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-700 font-mono leading-none">Cuaca BMKG</h3>
-                                <p class="text-[10px] text-slate-400 font-medium mt-0.5">Pacet, Mojokerto</p>
+                                <p id="bmkgLokasi" class="text-[10px] text-slate-400 font-medium mt-0.5">{{ $weatherInfo['location'] ?? 'Kemiri, Pacet, Mojokerto' }}</p>
                             </div>
                         </div>
                         <span class="bg-sky-50 text-sky-600 text-[10px] font-bold px-2 py-0.5 rounded-md border border-sky-100 font-mono">
@@ -2160,7 +2160,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
                             <span class="text-base"></span>
                             <div>
                                 <p class="text-[10px] text-slate-400 font-sans">Perkiraan hujan</p>
-                                <p id="bmkgHujan" class="font-bold text-slate-800">{{ ($weatherInfo['rainfall'] ?? null) !== null ? $weatherInfo['rainfall'] . ' mm/jam' : '–' }}</p>
+                                <p id="bmkgHujan" class="font-bold text-slate-800">{{ ($weatherInfo['rainfall'] ?? null) !== null ? $weatherInfo['rainfall'] . ' mm/3 jam' : '–' }}</p>
                             </div>
                         </div>
                     </div>
@@ -2596,13 +2596,14 @@ function updateBmkgDisplay(w) {
     put('bmkgKondisi', w.condition);
     put('bmkgSuhu', w.temp != null ? w.temp + '°C' : null);
     put('bmkgRh', w.humidity != null ? w.humidity + '%' : null);
-    put('bmkgHujan', w.rainfall != null ? w.rainfall + ' mm/jam' : null);
+    put('bmkgHujan', w.rainfall != null ? w.rainfall + ' mm/3 jam' : null);
+    put('bmkgLokasi', w.location);
     const el = document.getElementById('bmkg-display');
     if (!el) return;
     let text = '' + (w.condition || 'N/A');
     if (w.temp)     text += ' · ' + w.temp + '°C';
     if (w.humidity) text += ' · RH ' + w.humidity + '%';
-    if (w.rainfall && parseFloat(w.rainfall) > 0) text += ' · ' + w.rainfall + ' mm/jam';
+    if (w.rainfall && parseFloat(w.rainfall) > 0) text += ' · ' + w.rainfall + ' mm/3 jam';
     el.textContent = text;
 }
 

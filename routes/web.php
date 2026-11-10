@@ -29,6 +29,7 @@ Route::get('/api/weather-bmkg', [DashboardController::class, 'getWeather']);
 Route::post('/api/chatbot', [ChatbotController::class, 'chat'])->middleware('throttle:20,1');
 
 Route::get('/lanskap', [LandscapeController::class, 'index'])->name('lanskap.index');
+Route::get('/lanskap/panduan', [LandscapeController::class, 'panduan'])->name('lanskap.panduan');
 Route::get('/peta-evakuasi', [EvacuationMapController::class, 'index'])->name('peta-evakuasi.index');
 Route::get('/peta-evakuasi/checkins', [EvacuationMapController::class, 'getCheckins'])->name('peta-evakuasi.checkins-list');
 // Daftar posko: bisa dilihat warga maupun petugas

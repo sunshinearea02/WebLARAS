@@ -25,19 +25,19 @@ use Illuminate\Support\Str;
  *    -> WA ke SEMUA kader (semua desa): desa, node mana, koordinat, data, link web verifikasi
  *    -> 1 kader menyetujui di web  : WA ke warga Desa X (+ penerima semua desa)
  *    -> 1 kader menolak            : alarm palsu, level sama dibisukan 30 menit
- *    -> tidak ada keputusan:
- *              BAHAYA  -> otomatis dikirim ke warga setelah 10 menit
- *              WASPADA -> kedaluwarsa setelah 30 menit, tidak dikirim
+ *    -> tidak ada keputusan: otomatis dikirim ke warga (fail-safe)
+ *              BAHAYA  -> setelah 5 menit
+ *              WASPADA -> setelah 10 menit
  *
  *  Setelah disetujui, warga desa itu diberi pengingat sesuai cooldown tanpa verifikasi ulang
- *  (BAHAYA 15 menit, WASPADA 60 menit). WASPADA naik ke BAHAYA = verifikasi baru.
+ *  (BAHAYA 5 menit, WASPADA 10 menit). WASPADA naik ke BAHAYA = verifikasi baru.
  *  Semua node desa kembali AMAN -> verifikasi menunggu dibatalkan, warga yang sempat diberi
  *  peringatan menerima kabar "kembali aman".
  *  Bila belum ada satu pun nomor kader, peringatan langsung ke warga agar tidak hilang.
  */
 class WhatsAppAlertService
 {
-    private const COOLDOWN_MENIT = ['BAHAYA' => 15, 'WASPADA' => 60];
+    private const COOLDOWN_MENIT = ['BAHAYA' => 5, 'WASPADA' => 10];
     private const MUTE_MENIT     = 30;
     private const RANK           = ['AMAN' => 0, 'WASPADA' => 1, 'BAHAYA' => 2];
     private const FOOTER         = "LARAS\nLandslide Alert & Rescue Adaptive System";
@@ -51,7 +51,7 @@ class WhatsAppAlertService
     /** @var string[] */
     protected array $extraKader;
     protected int $autoSendMinutes;
-    protected int $waspadaExpireMinutes;
+    protected int $waspadaAutoSendMinutes;
     protected int $freshMinutes;
 
     public function __construct()
@@ -63,13 +63,19 @@ class WhatsAppAlertService
         $this->deviceId = (string) ($cfg['device_id'] ?? '');
         $this->globalTargets = self::parseTargets((string) ($cfg['targets'] ?? ''));
         $this->extraKader    = self::parseTargets((string) ($cfg['kader_targets'] ?? ''));
-        $this->autoSendMinutes      = max(1, (int) ($cfg['auto_send_minutes'] ?? 10));
-        $this->waspadaExpireMinutes = max(1, (int) ($cfg['waspada_expire_minutes'] ?? 30));
+        $this->autoSendMinutes        = max(1, (int) ($cfg['auto_send_minutes'] ?? 5));
+        $this->waspadaAutoSendMinutes = max(1, (int) ($cfg['waspada_auto_send_minutes'] ?? 10));
         $this->freshMinutes         = max(1, (int) ($cfg['fresh_minutes'] ?? 30));
     }
 
     public function autoSendMinutes(): int { return $this->autoSendMinutes; }
-    public function waspadaExpireMinutes(): int { return $this->waspadaExpireMinutes; }
+    public function waspadaAutoSendMinutes(): int { return $this->waspadaAutoSendMinutes; }
+
+    /** Batas tunggu keputusan kader sebelum peringatan otomatis dikirim ke warga. */
+    public function autoMinutesFor(string $level): int
+    {
+        return $level === 'BAHAYA' ? $this->autoSendMinutes : $this->waspadaAutoSendMinutes;
+    }
 
     /** @return string[] penerima semua desa dari WA_ALERT_TARGETS (dipakai laras:wa-test) */
     public function targets(): array
@@ -366,32 +372,15 @@ class WhatsAppAlertService
     }
 
     /**
-     *  - BAHAYA menunggu > 10 menit  -> otomatis ke warga
-     *  - WASPADA menunggu > 30 menit -> kedaluwarsa
+     *  Tanpa keputusan kader -> otomatis ke warga:
+     *  BAHAYA setelah autoSendMinutes (5), WASPADA setelah waspadaAutoSendMinutes (10).
      */
     public function tick(): void
     {
-        AlertVerification::where('state', AlertVerification::PENDING)->where('level', 'BAHAYA')
-            ->where('created_at', '<=', now()->subMinutes($this->autoSendMinutes))
-            ->get()->each(fn ($v) => $this->deliverToWarga($v, null, 'auto'));
-
-        $old = AlertVerification::where('state', AlertVerification::PENDING)->where('level', 'WASPADA')
-            ->where('created_at', '<=', now()->subMinutes($this->waspadaExpireMinutes))->get();
-        foreach ($old as $v) {
-            $claimed = AlertVerification::whereKey($v->id)->where('state', AlertVerification::PENDING)
-                ->update(['state' => AlertVerification::EXPIRED, 'decided_via' => 'auto', 'decided_at' => now(),
-                          'note' => "Tidak ada keputusan kader dalam {$this->waspadaExpireMinutes} menit"]);
-            if (!$claimed) continue;
-            $key = Str::slug((string) $v->desa) ?: md5((string) $v->desa);
-            Cache::put("wa_mute_{$key}_WASPADA", true, now()->addMinutes(self::MUTE_MENIT));
-            $this->sendMany(array_keys($this->kaderContacts()), $this->kaderNotice('VERIFIKASI KEDALUWARSA', $v, [
-                "Tidak ada verifikasi kader dalam {$this->waspadaExpireMinutes} menit.",
-                '',
-                'Status berubah menjadi:',
-                '*EXPIRED*',
-                '',
-                'Peringatan WASPADA tidak dikirimkan kepada warga. Sistem akan meminta verifikasi kembali apabila status meningkat menjadi BAHAYA.',
-            ]));
+        foreach (['BAHAYA', 'WASPADA'] as $level) {
+            AlertVerification::where('state', AlertVerification::PENDING)->where('level', $level)
+                ->where('created_at', '<=', now()->subMinutes($this->autoMinutesFor($level)))
+                ->get()->each(fn ($v) => $this->deliverToWarga($v, null, 'auto'));
         }
     }
 
@@ -465,13 +454,15 @@ class WhatsAppAlertService
 
         $this->sendMany(array_keys($this->kaderContacts()), $via === 'auto'
             ? $this->kaderNotice('PERINGATAN DIKIRIM OTOMATIS', $v, [
-                "Tidak ada verifikasi kader dalam {$this->autoSendMinutes} menit.",
+                "Tidak ada verifikasi kader dalam {$this->autoMinutesFor($v->level)} menit.",
                 '',
                 'Status berubah menjadi:',
                 '*AUTO SENT*',
                 '',
-                "Peringatan BAHAYA telah dikirimkan kepada {$ok} dari " . count($to) . " nomor warga Desa {$v->desa}.",
-                'Mohon kader segera bersiaga di posko dan membantu proses evakuasi.',
+                "Peringatan {$v->level} telah dikirimkan kepada {$ok} dari " . count($to) . " nomor warga Desa {$v->desa}.",
+                $v->level === 'BAHAYA'
+                    ? 'Mohon kader segera bersiaga di posko dan membantu proses evakuasi.'
+                    : 'Mohon kader memantau kondisi wilayah dan menyiapkan posko.',
             ])
             : $this->kaderNotice('VERIFIKASI BERHASIL', $v, [
                 'Diverifikasi oleh : ' . ($v->deciderName() ?? 'kader'),
@@ -573,9 +564,7 @@ class WhatsAppAlertService
             'Mohon segera melakukan verifikasi lapangan. Verifikasi oleh 1 kader sudah cukup.',
             $url,
             '',
-            $v->level === 'BAHAYA'
-                ? "Apabila tidak ada verifikasi dalam {$this->autoSendMinutes} menit, peringatan BAHAYA akan dikirimkan kepada warga secara otomatis."
-                : "Apabila tidak ada verifikasi dalam {$this->waspadaExpireMinutes} menit, peringatan WASPADA tidak akan dikirimkan.",
+            "Apabila tidak ada verifikasi dalam {$this->autoMinutesFor($v->level)} menit, peringatan {$v->level} akan dikirimkan kepada warga secara otomatis.",
             '',
             self::FOOTER,
         );
@@ -616,7 +605,7 @@ class WhatsAppAlertService
         } catch (\Throwable $e) { /* opsional */ }
 
         $verif = match (true) {
-            !empty($meta['auto'])        => "Peringatan ini dikirim otomatis oleh sistem karena kondisi berbahaya dan belum ada verifikasi kader dalam {$this->autoSendMinutes} menit.",
+            !empty($meta['auto'])        => "Peringatan ini dikirim otomatis oleh sistem karena kondisi berbahaya dan belum ada verifikasi kader dalam {$this->autoMinutesFor($status)} menit.",
             !empty($meta['verified_by']) => "Informasi ini telah diverifikasi oleh kader setempat ({$meta['verified_by']}).",
             default                      => 'Informasi ini telah diverifikasi oleh kader setempat.',
         };

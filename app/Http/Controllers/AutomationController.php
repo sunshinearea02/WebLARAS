@@ -13,7 +13,7 @@ use Illuminate\Http\Request;
  * Isinya sama dengan `php artisan laras:alert-tick`:
  *  - baca status terbaru semua node per desa
  *  - WASPADA/BAHAYA -> WA verifikasi ke semua kader
- *  - BAHAYA tanpa keputusan 10 menit -> otomatis ke warga
+ *  - tanpa keputusan kader -> otomatis ke warga (BAHAYA 5 menit, WASPADA 10 menit)
  * Pengiriman ke warga setelah kader klik "Setujui" tetap terjadi langsung dari web.
  *
  * Keamanan: header X-LARAS-Token harus sama dengan N8N_TOKEN di .env.

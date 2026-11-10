@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\LandscapeAssessment;
 use App\Models\SensorNode;
+use App\Support\LandscapeGuide;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -23,6 +24,20 @@ class LandscapeController extends Controller
         }
 
         return view('lanskap', compact('entries', 'options', 'editing', 'nodes'));
+    }
+
+    /**
+     * Panduan pengisian data lanskap untuk kader: cara menilai setiap kolom di lapangan.
+     */
+    public function panduan()
+    {
+        return view('lanskap-panduan', [
+            'fields' => LandscapeGuide::fields(),
+            'weights' => LandscapeGuide::weights(),
+            'tools' => LandscapeGuide::tools(),
+            'notesChecklist' => LandscapeGuide::notesChecklist(),
+            'sources' => LandscapeGuide::sources(),
+        ]);
     }
 
     public function store(Request $request)
@@ -76,6 +91,10 @@ class LandscapeController extends Controller
             'tidak_ada' => false,
             default => null,
         };
+
+        // Pipeline AI di Raspberry Pi mencocokkan survei dengan node lewat sensor_log_id
+        // (kode node, mis. NODE-01), jadi kolom ini selalu diisi dari node yang dipilih.
+        $data['sensor_log_id'] = SensorNode::find($data['node_id'])->node_code;
 
         return $data;
     }

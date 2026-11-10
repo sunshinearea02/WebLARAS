@@ -57,8 +57,9 @@ return [
         'kader_targets'          => env('WA_KADER_TARGETS', ''),
         // Data node lebih tua dari N menit dianggap mati, tidak memicu peringatan
         'fresh_minutes'          => env('WA_FRESH_MINUTES', 30),
-        'auto_send_minutes'      => env('WA_BAHAYA_AUTO_SEND_MINUTES', 10),
-        'waspada_expire_minutes' => env('WA_WASPADA_EXPIRE_MINUTES', 30),
+        // Tanpa keputusan kader, peringatan otomatis dikirim ke warga setelah N menit
+        'auto_send_minutes'         => env('WA_BAHAYA_AUTO_SEND_MINUTES', 5),
+        'waspada_auto_send_minutes' => env('WA_WASPADA_AUTO_SEND_MINUTES', 10),
     ],
 
 ];

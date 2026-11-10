@@ -31,7 +31,7 @@ class VerifikasiController extends Controller
             'history'        => $history,
             'highlight'      => (int) $request->query('v'),
             'autoMinutes'    => $wa->autoSendMinutes(),
-            'waspadaMinutes' => $wa->waspadaExpireMinutes(),
+            'waspadaMinutes' => $wa->waspadaAutoSendMinutes(),
             'kaderCount'     => count($wa->kaderContacts()),
             'globalCount'    => count($wa->targets()),
             'desaList'       => $desaList,
