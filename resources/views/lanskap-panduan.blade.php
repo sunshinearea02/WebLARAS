@@ -94,15 +94,6 @@
                         </div>
                     @endforeach
                 </div>
-                <p class="mt-3 text-xs text-slate-500 leading-relaxed">
-                    Bobot disusun mengacu pada indikator kerawanan longsor <a href="#sumber-pu22" class="text-teal-600 hover:underline">Permen PU 22/PRT/M/2007</a>
-                    yang disesuaikan untuk pengamatan di satu lereng. Keretakan paling besar karena menjadi tanda lereng sudah mulai bergerak
-                    (<a href="#sumber-esdm" class="text-teal-600 hover:underline">ESDM</a>). Kemiringan berikutnya sebagai indikator fisik utama.
-                    Vegetasi dan drainase masing-masing menggabungkan beberapa indikator Permen PU (vegetasi dan pola tanam; tata air lereng,
-                    drainase, dan kolam). Riwayat longsor diperhitungkan karena bekas longsoran lama mudah bergerak lagi. Jenis tanah paling kecil
-                    karena pengaruhnya terhadap air sudah diukur langsung oleh sensor kelembapan. Pemotongan lereng buatan menaikkan skor,
-                    sedangkan perkuatan lereng menurunkannya. Isilah sesuai kondisi sebenarnya.
-                </p>
             </div>
         </section>
 
