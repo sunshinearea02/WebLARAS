@@ -605,7 +605,7 @@ class WhatsAppAlertService
         } catch (\Throwable $e) { /* opsional */ }
 
         $verif = match (true) {
-            !empty($meta['auto'])        => "Peringatan ini dikirim otomatis oleh sistem karena kondisi berbahaya dan belum ada verifikasi kader dalam {$this->autoSendMinutes} menit.",
+            !empty($meta['auto'])        => "Peringatan ini dikirim otomatis oleh sistem karena kondisi berbahaya dan belum ada verifikasi kader dalam {$this->autoMinutesFor($status)} menit.",
             !empty($meta['verified_by']) => "Informasi ini telah diverifikasi oleh kader setempat ({$meta['verified_by']}).",
             default                      => 'Informasi ini telah diverifikasi oleh kader setempat.',
         };

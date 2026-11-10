@@ -32,8 +32,8 @@ class LandscapeSensorLogIdTest extends TestCase
     public function test_store_and_update_fill_sensor_log_id_from_node(): void
     {
         $kader = User::factory()->create(['role' => User::ROLE_KADER, 'status' => 'ACTIVE']);
-        $node1 = SensorNode::create(['node_code' => 'NODE-01', 'node_name' => 'Node 1', 'status' => 'ACTIVE']);
-        $node2 = SensorNode::create(['node_code' => 'NODE-02', 'node_name' => 'Node 2', 'status' => 'ACTIVE']);
+        $node1 = SensorNode::create(['node_code' => 'NODE-01', 'node_name' => 'Node 1', 'status' => 'ACTIVE', 'latitude' => -7.674, 'longitude' => 112.516]);
+        $node2 = SensorNode::create(['node_code' => 'NODE-02', 'node_name' => 'Node 2', 'status' => 'ACTIVE', 'latitude' => -7.674, 'longitude' => 112.516]);
 
         $this->actingAs($kader)->post('/lanskap', $this->form($node1))->assertRedirect();
         $entry = LandscapeAssessment::sole();
@@ -49,7 +49,7 @@ class LandscapeSensorLogIdTest extends TestCase
         $nodes = [];
         foreach (['NODE-01' => 12, 'NODE-02' => 24, 'NODE-04' => 5] as $code => $deg) {
             $nodes[$code] = SensorNode::create(['node_code' => $code, 'node_name' => $code, 'desa' => 'Kemiri',
-                'status' => 'ACTIVE']);
+                'status' => 'ACTIVE', 'latitude' => -7.674, 'longitude' => 112.516]);
         }
         LandscapeAssessment::create(['node_id' => $nodes['NODE-01']->id, 'user_id' => $admin->id,
             'location_name' => 'Titik Sensor B - Lereng Gunung Merbabu']);
