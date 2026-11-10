@@ -58,7 +58,7 @@
                     <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Kapan survei dilakukan</h4>
                     <ul class="list-disc pl-5 space-y-1">
                         <li>Saat node pertama kali dipasang.</li>
-                        <li>Setiap 3 bulan, terutama di awal dan akhir musim hujan.</li>
+                        <li>Setiap 2–3 bulan bersamaan dengan perawatan node, terutama di awal dan akhir musim hujan.</li>
                         <li>Setelah hujan lebat, gempa, atau ada galian dan pembukaan lahan baru di sekitar node.</li>
                     </ul>
                     <p class="mt-2">Bila kondisi berubah, ubah data node tersebut dengan tombol <strong>Edit</strong> supaya sistem memakai kondisi terbaru.</p>
@@ -66,22 +66,13 @@
                 <div>
                     <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Area yang diamati</h4>
                     <p>Lingkaran berjari-jari <strong>50 m</strong> dengan node sebagai titik tengahnya. Perhatikan terutama bagian <strong>atas lereng</strong>, karena retakan dan aliran air dari atas paling memengaruhi titik node.</p>
-                    <p class="mt-2">Untuk memperkirakan 50 m di lapangan, bentangkan meteran atau hitung ±65 langkah orang dewasa dari node. Karena node dipasang berdekatan, area dua node bisa tumpang tindih. Kondisi yang sama boleh dicatat di kedua node.</p>
+                    <p class="mt-2">Untuk memperkirakan 50 m di lapangan, bentangkan meteran atau hitung ±65 langkah orang dewasa dari node.</p>
                 </div>
-                <div>
-                    <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Alat yang dibawa</h4>
-                    <ul class="list-disc pl-5 space-y-1">
-                        @foreach($tools as $tool)
-                            <li>{{ $tool }}</li>
-                        @endforeach
-                    </ul>
-                </div>
-                <div class="bg-rose-50 border border-rose-200 rounded-xl p-4 text-rose-800">
-                    <h4 class="text-xs font-bold uppercase tracking-wider mb-2">Keselamatan</h4>
-                    <ul class="list-disc pl-5 space-y-1">
-                        <li>Jangan survei saat hujan deras atau saat status node Waspada/Bahaya.</li>
-                        <li>Survei minimal berdua, jangan sendirian.</li>
-                        <li>Jangan berdiri di tepi tebing atau di atas retakan.</li>
+                <div class="md:col-span-2 bg-cream-50 border border-cream-200 rounded-xl p-4">
+                    <h4 class="text-xs font-bold uppercase tracking-wider text-cream-800 mb-2">Perawatan node</h4>
+                    <ul class="list-disc pl-5 space-y-1 text-slate-700">
+                        <li>Lakukan perawatan setiap node <strong>2–3 bulan sekali</strong>: bersihkan panel surya dan corong rain gauge, pastikan probe dan kabel tidak lepas, dan pastikan alat masih tegak di posisinya.</li>
+                        <li>Bila ada <strong>pemberitahuan node tidak mengirim data</strong>, segera cek node tersebut di lapangan.</li>
                     </ul>
                 </div>
             </div>
@@ -90,9 +81,7 @@
             <div class="border-t border-slate-100 pt-5">
                 <h4 class="text-xs font-bold uppercase tracking-wider text-slate-700 mb-2">Bagaimana data ini dipakai</h4>
                 <p class="text-sm text-slate-600 leading-relaxed">
-                    Isian form diubah menjadi <strong>skor lereng</strong> (0–1). Makin tinggi skornya, ambang peringatan diturunkan
-                    hingga 30% sehingga peringatan muncul lebih awal. Contoh: pada skor 0,55, batas kebasahan kritis turun dari 75 menjadi 62,6.
-                    Bobot tiap kolom:
+                    Isian form diubah menjadi <strong>skor lereng</strong> (0–1). Bobot tiap kolom:
                 </p>
                 <div class="mt-3 space-y-2">
                     @foreach($weights as $w)
@@ -106,8 +95,13 @@
                     @endforeach
                 </div>
                 <p class="mt-3 text-xs text-slate-500 leading-relaxed">
-                    Pemotongan lereng buatan menaikkan skor, sedangkan perkuatan lereng menurunkannya. Bobot dan nilai ini rancangan tim LARAS
-                    dan akan dikalibrasi bersama ahli geoteknik. Karena itu isilah sesuai kondisi sebenarnya, bukan perkiraan yang paling aman.
+                    Bobot disusun mengacu pada indikator kerawanan longsor <a href="#sumber-pu22" class="text-teal-600 hover:underline">Permen PU 22/PRT/M/2007</a>
+                    yang disesuaikan untuk pengamatan di satu lereng. Keretakan paling besar karena menjadi tanda lereng sudah mulai bergerak
+                    (<a href="#sumber-esdm" class="text-teal-600 hover:underline">ESDM</a>). Kemiringan berikutnya sebagai indikator fisik utama.
+                    Vegetasi dan drainase masing-masing menggabungkan beberapa indikator Permen PU (vegetasi dan pola tanam; tata air lereng,
+                    drainase, dan kolam). Riwayat longsor diperhitungkan karena bekas longsoran lama mudah bergerak lagi. Jenis tanah paling kecil
+                    karena pengaruhnya terhadap air sudah diukur langsung oleh sensor kelembapan. Pemotongan lereng buatan menaikkan skor,
+                    sedangkan perkuatan lereng menurunkannya. Isilah sesuai kondisi sebenarnya.
                 </p>
             </div>
         </section>
@@ -115,15 +109,9 @@
         <!-- PANDUAN PER KOLOM -->
         @foreach($fields as $key => $field)
         <section id="{{ $key }}" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5">
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-teal-600 bg-air-100 rounded-xl p-2">{{ $field['icon'] }}</span>
-                <div>
-                    <h3 class="text-lg font-bold text-slate-900">{{ $field['label'] }}</h3>
-                    <span class="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-teal-50 border border-teal-200 text-[11px] font-semibold text-teal-700">
-                        <span class="material-symbols-outlined text-[14px]">radar</span> Area: radius 50 m dari node
-                    </span>
-                    <p class="text-sm text-slate-600 mt-2 leading-relaxed">{{ $field['what'] }}</p>
-                </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">{{ $field['label'] }}</h3>
+                <p class="text-sm text-slate-600 mt-1 leading-relaxed">{{ $field['what'] }}</p>
             </div>
 
             <div>
@@ -185,12 +173,9 @@
 
         <!-- CATATAN LAPANGAN -->
         <section id="catatan" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-3">
-            <div class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-teal-600 bg-air-100 rounded-xl p-2">edit_note</span>
-                <div>
-                    <h3 class="text-lg font-bold text-slate-900">Catatan Kondisi Lapangan</h3>
-                    <p class="text-sm text-slate-600 mt-1">Tulis hal berikut di kolom Catatan, lalu simpan fotonya. Catatan ini membantu petugas BPBD membaca perubahan lereng dari waktu ke waktu.</p>
-                </div>
+            <div>
+                <h3 class="text-lg font-bold text-slate-900">Catatan Kondisi Lapangan</h3>
+                <p class="text-sm text-slate-600 mt-1">Tulis hal berikut di kolom Catatan, lalu simpan fotonya. Catatan ini membantu petugas BPBD membaca perubahan lereng dari waktu ke waktu.</p>
             </div>
             <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm text-slate-600">
                 @foreach($notesChecklist as $item)
